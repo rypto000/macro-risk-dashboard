@@ -190,6 +190,7 @@ export default function Page() {
       {/* Footer */}
       <div className="mt-12 text-center text-gray-500 text-sm">
         <p>Data source: Federal Reserve Economic Data (FRED)</p>
+        <p className="mt-1">Last deployed: {new Date().toLocaleString('ko-KR')}</p>
       </div>
     </main>
   );
