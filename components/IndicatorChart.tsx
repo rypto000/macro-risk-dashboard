@@ -52,7 +52,9 @@ export default function IndicatorChart({
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11, angle: -45 }}
+            tick={{ fontSize: 11 }}
+            angle={-45}
+            textAnchor="end"
             height={80}
             tickFormatter={(date) => {
               const d = new Date(date);
