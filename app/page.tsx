@@ -13,6 +13,7 @@ interface FredData {
   t10y2y: DataPoint[];
   unrate: DataPoint[];
   hyOas: DataPoint[];
+  ismPmi: DataPoint[];
   lastUpdated: string;
 }
 
@@ -20,9 +21,6 @@ export default function Page() {
   const [data, setData] = useState<FredData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // ISM PMI - 수동 입력 필요 (최신값)
-  const ismPmiValue = 48.20; // 2025-11
 
   useEffect(() => {
     fetch('/api/fred')
@@ -77,12 +75,13 @@ export default function Page() {
   const latestT10Y2Y = data.t10y2y[data.t10y2y.length - 1]?.value;
   const latestUnrate = data.unrate[data.unrate.length - 1]?.value;
   const latestHyOas = data.hyOas[data.hyOas.length - 1]?.value;
+  const latestIsmPmi = data.ismPmi[data.ismPmi.length - 1]?.value;
 
   // Calculate overall risk level
   const warnings = [
     latestT10Y2Y !== null && latestT10Y2Y <= 0,
     latestUnrate !== null && latestUnrate >= 4.5,
-    ismPmiValue < 50,
+    latestIsmPmi !== null && latestIsmPmi < 50,
     latestHyOas !== null && latestHyOas >= 6.0
   ].filter(Boolean).length;
 
@@ -106,9 +105,9 @@ export default function Page() {
     },
     {
       name: 'ISM PMI (제조업)',
-      value: ismPmiValue,
+      value: latestIsmPmi,
       threshold: 50,
-      status: (ismPmiValue < 50 ? 'WARN' : 'OK') as 'OK' | 'WARN',
+      status: (latestIsmPmi !== null && latestIsmPmi < 50) ? 'WARN' as const : 'OK' as const,
       description: 'ISM 제조업 PMI'
     },
     {
@@ -177,23 +176,24 @@ export default function Page() {
           `}
         />
 
-        <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
-          <h3 className="text-xl font-bold mb-4 text-white">📈 ISM 제조업 PMI</h3>
-          <p className="text-gray-300">
-            현재값: <span className="font-bold text-2xl text-white">{ismPmiValue}</span> (2025-11)
-          </p>
-          <p className="text-sm text-gray-400 mt-2">
-            ※ ISM PMI는 수동 업데이트가 필요합니다. 최신 데이터는{' '}
-            <a
-              href="https://www.ismworld.org/supply-management-news-and-reports/reports/ism-pmi-reports/"
-              target="_blank"
-              className="text-blue-400 underline hover:text-blue-300"
-            >
-              ISM 공식 사이트
-            </a>
-            에서 확인하세요.
-          </p>
-        </div>
+        <IndicatorChart
+          data={data.ismPmi}
+          title="📈 ISM 제조업 PMI"
+          dataKey="ISM PMI"
+          referenceLine={50}
+          referenceLabel="기준선: 50"
+          color="#f59e0b"
+          explanation={`
+            <p class="font-bold mb-2">📊 ISM 제조업 구매관리자 지수</p>
+            <ul class="space-y-1 ml-4">
+              <li><strong>50 이상:</strong> 제조업 확장. 경제 성장</li>
+              <li><strong>50:</strong> 중립. 변화 없음</li>
+              <li><strong>50 미만:</strong> <span class="text-yellow-600 font-bold">제조업 위축. 경제 둔화 가능성</span></li>
+              <li><strong>43 미만:</strong> <span class="text-red-600 font-bold">전체 경제 침체 신호</span></li>
+              <li><strong>역사적으로:</strong> 3개월 연속 50 미만일 때 경기침체 가능성 높음</li>
+            </ul>
+          `}
+        />
 
         <IndicatorChart
           data={data.hyOas}

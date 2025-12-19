@@ -29,17 +29,21 @@ export async function GET() {
       );
     }
 
-    // Fetch all 4 indicators
-    const [t10y2y, unrate, hyOas] = await Promise.all([
+    // Fetch all indicators in parallel
+    const [t10y2y, unrate, hyOas, ismResponse] = await Promise.all([
       fetchFredData('T10Y2Y'),    // 10Y-2Y spread
       fetchFredData('UNRATE'),    // Unemployment rate
-      fetchFredData('BAMLH0A0HYM2') // High Yield OAS
+      fetchFredData('BAMLH0A0HYM2'), // High Yield OAS
+      fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/ism-pmi`)
     ]);
+
+    const ismData = await ismResponse.json();
 
     return NextResponse.json({
       t10y2y: t10y2y.reverse(),
       unrate: unrate.reverse(),
       hyOas: hyOas.reverse(),
+      ismPmi: ismData.ismPmi || [],
       lastUpdated: new Date().toISOString()
     });
   } catch (error) {
