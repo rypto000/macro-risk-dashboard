@@ -121,15 +121,15 @@ export default function Page() {
   ];
 
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-4xl font-bold mb-8">Macro Risk Dashboard</h1>
+    <main className="min-h-screen p-8 bg-slate-900">
+      <h1 className="text-4xl font-bold mb-8 text-white">Macro Risk Dashboard</h1>
 
       {/* Risk Level Badge */}
       <div className="mb-8">
         <div className={`inline-block px-6 py-3 rounded-lg ${riskColor} text-white font-bold text-2xl`}>
           종합위험등급: {riskLevel}
         </div>
-        <p className="mt-2 text-gray-600">
+        <p className="mt-2 text-gray-400">
           마지막 업데이트: {new Date(data.lastUpdated).toLocaleString('ko-KR')}
         </p>
       </div>
@@ -148,6 +148,15 @@ export default function Page() {
           referenceLine={0}
           referenceLabel="기준선: 0"
           color="#8884d8"
+          explanation={`
+            <p class="font-bold mb-2">📊 10년물-2년물 국채 금리 스프레드</p>
+            <ul class="space-y-1 ml-4">
+              <li><strong>양수(+):</strong> 정상적인 경제 상황. 장기 금리가 단기 금리보다 높음</li>
+              <li><strong>0에 가까움:</strong> 평탄화된 수익률 곡선. 경제 불확실성 증가</li>
+              <li><strong>음수(-):</strong> 역전된 수익률 곡선. <span class="text-red-600 font-bold">강력한 경기침체 신호</span></li>
+              <li><strong>역사적으로:</strong> 금리 역전 후 평균 12-18개월 내 경기침체 발생</li>
+            </ul>
+          `}
         />
 
         <IndicatorChart
@@ -157,19 +166,28 @@ export default function Page() {
           referenceLine={4.5}
           referenceLabel="기준선: 4.5%"
           color="#82ca9d"
+          explanation={`
+            <p class="font-bold mb-2">📊 미국 실업률 (Unemployment Rate)</p>
+            <ul class="space-y-1 ml-4">
+              <li><strong>3-4%:</strong> 완전 고용 수준. 건강한 경제</li>
+              <li><strong>4.5% 이상:</strong> <span class="text-yellow-600 font-bold">경제 둔화 신호</span></li>
+              <li><strong>6% 이상:</strong> <span class="text-red-600 font-bold">경기침체 수준</span></li>
+              <li><strong>급격한 상승:</strong> 사업 축소, 소비 감소, 경제 위축 가능성</li>
+            </ul>
+          `}
         />
 
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-xl font-bold mb-4">📈 ISM 제조업 PMI</h3>
-          <p className="text-gray-600">
-            현재값: <span className="font-bold text-2xl">{ismPmiValue}</span> (2025-11)
+        <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+          <h3 className="text-xl font-bold mb-4 text-white">📈 ISM 제조업 PMI</h3>
+          <p className="text-gray-300">
+            현재값: <span className="font-bold text-2xl text-white">{ismPmiValue}</span> (2025-11)
           </p>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-gray-400 mt-2">
             ※ ISM PMI는 수동 업데이트가 필요합니다. 최신 데이터는{' '}
             <a
               href="https://www.ismworld.org/supply-management-news-and-reports/reports/ism-pmi-reports/"
               target="_blank"
-              className="text-blue-500 underline"
+              className="text-blue-400 underline hover:text-blue-300"
             >
               ISM 공식 사이트
             </a>
@@ -184,11 +202,20 @@ export default function Page() {
           referenceLine={6.0}
           referenceLabel="기준선: 6.0%"
           color="#ffc658"
+          explanation={`
+            <p class="font-bold mb-2">📊 하이일드 채권 옵션조정 스프레드</p>
+            <ul class="space-y-1 ml-4">
+              <li><strong>3-5%:</strong> 낮은 신용 위험. 시장 안정</li>
+              <li><strong>6% 이상:</strong> <span class="text-yellow-600 font-bold">신용 위험 증가</span></li>
+              <li><strong>8-10% 이상:</strong> <span class="text-red-600 font-bold">심각한 신용 경색. 금융 위기 가능성</span></li>
+              <li><strong>급격한 상승:</strong> 투자자들이 안전자산으로 도피. 기업 부도 위험 증가</li>
+            </ul>
+          `}
         />
       </div>
 
       {/* Footer */}
-      <div className="mt-12 text-center text-gray-500 text-sm">
+      <div className="mt-12 text-center text-gray-400 text-sm">
         <p>Data source: Federal Reserve Economic Data (FRED)</p>
         <p className="mt-1">Last deployed: {new Date().toLocaleString('ko-KR')}</p>
       </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface DataPoint {
@@ -14,13 +15,14 @@ interface IndicatorChartProps {
   referenceLine: number;
   referenceLabel: string;
   color: string;
+  explanation?: string;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-        <p className="text-sm font-semibold text-gray-700">
+      <div className="bg-slate-700 p-3 border border-slate-600 rounded shadow-lg">
+        <p className="text-sm font-semibold text-gray-200">
           {new Date(label).toLocaleDateString('ko-KR', {
             year: 'numeric',
             month: 'long',
@@ -42,17 +44,20 @@ export default function IndicatorChart({
   dataKey,
   referenceLine,
   referenceLabel,
-  color
+  color,
+  explanation
 }: IndicatorChartProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <div className="bg-white p-6 rounded-lg shadow-lg">
-      <h3 className="text-xl font-bold mb-4">{title}</h3>
+    <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+      <h3 className="text-xl font-bold mb-4 text-white">{title}</h3>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
             angle={-45}
             textAnchor="end"
             height={80}
@@ -60,8 +65,9 @@ export default function IndicatorChart({
               const d = new Date(date);
               return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             }}
+            stroke="#475569"
           />
-          <YAxis tick={{ fontSize: 12 }} />
+          <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} stroke="#475569" />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
           <ReferenceLine
@@ -80,6 +86,23 @@ export default function IndicatorChart({
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {explanation && (
+        <div className="mt-4 border-t border-slate-700 pt-4">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center text-sm text-gray-400 hover:text-gray-200 font-medium"
+          >
+            <span className="mr-2">{isOpen ? '▼' : '▶'}</span>
+            지표 설명 보기
+          </button>
+          {isOpen && (
+            <div className="mt-3 text-sm text-gray-300 bg-slate-900 p-4 rounded border border-slate-700">
+              <div dangerouslySetInnerHTML={{ __html: explanation }} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
