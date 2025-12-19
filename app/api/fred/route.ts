@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ismPmiHistorical } from '../../lib/ism-pmi-data';
+import { ismPmiHistorical } from '../../../lib/ism-pmi-data';
 
 const FRED_API_KEY = process.env.FRED_API_KEY || '';
 const FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations';
