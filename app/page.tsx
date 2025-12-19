@@ -94,28 +94,28 @@ export default function Page() {
       name: 'T10Y2Y (금리차)',
       value: latestT10Y2Y,
       threshold: 0,
-      status: (latestT10Y2Y !== null && latestT10Y2Y <= 0) ? 'WARN' : 'OK',
+      status: (latestT10Y2Y !== null && latestT10Y2Y <= 0) ? 'WARN' as const : 'OK' as const,
       description: '10Y-2Y 금리 스프레드'
     },
     {
       name: 'UNRATE (실업률)',
       value: latestUnrate,
       threshold: 4.5,
-      status: (latestUnrate !== null && latestUnrate >= 4.5) ? 'WARN' : 'OK',
+      status: (latestUnrate !== null && latestUnrate >= 4.5) ? 'WARN' as const : 'OK' as const,
       description: '실업률'
     },
     {
       name: 'ISM PMI (제조업)',
       value: ismPmiValue,
       threshold: 50,
-      status: ismPmiValue < 50 ? 'WARN' : 'OK',
+      status: (ismPmiValue < 50 ? 'WARN' : 'OK') as 'OK' | 'WARN',
       description: 'ISM 제조업 PMI'
     },
     {
       name: 'HY OAS (하이일드)',
       value: latestHyOas,
       threshold: 6.0,
-      status: (latestHyOas !== null && latestHyOas >= 6.0) ? 'WARN' : 'OK',
+      status: (latestHyOas !== null && latestHyOas >= 6.0) ? 'WARN' as const : 'OK' as const,
       description: '하이일드 OAS'
     }
   ];
