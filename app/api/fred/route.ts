@@ -9,7 +9,7 @@ interface FredDataPoint {
 }
 
 async function fetchFredData(seriesId: string) {
-  const url = `${FRED_BASE_URL}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=500`;
+  const url = `${FRED_BASE_URL}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=2000`;
 
   const response = await fetch(url);
   const data = await response.json();
