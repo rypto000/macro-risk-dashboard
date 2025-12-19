@@ -16,6 +16,26 @@ interface IndicatorChartProps {
   color: string;
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+        <p className="text-sm font-semibold text-gray-700">
+          {new Date(label).toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </p>
+        <p className="text-lg font-bold" style={{ color: payload[0].color }}>
+          {payload[0].name}: {payload[0].value !== null ? payload[0].value.toFixed(2) : 'N/A'}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function IndicatorChart({
   data,
   title,
@@ -39,10 +59,7 @@ export default function IndicatorChart({
             }}
           />
           <YAxis tick={{ fontSize: 12 }} />
-          <Tooltip
-            labelFormatter={(date) => new Date(date).toLocaleDateString()}
-            formatter={(value: number) => value.toFixed(2)}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Legend />
           <ReferenceLine
             y={referenceLine}
