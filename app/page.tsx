@@ -139,18 +139,8 @@ export default function Page() {
         <SummaryTable indicators={indicators} />
       </div>
 
-      {/* Combined Chart */}
-      <div className="mb-8">
-        <CombinedChart
-          t10y2y={data.t10y2y}
-          unrate={data.unrate}
-          ismPmi={data.ismPmi}
-          hyOas={data.hyOas}
-        />
-      </div>
-
       {/* Individual Charts */}
-      <div className="space-y-8">
+      <div className="space-y-8 mb-8">
         <IndicatorChart
           data={data.t10y2y}
           title="📈 10Y-2Y 금리차 (T10Y2Y)"
@@ -222,6 +212,16 @@ export default function Page() {
               <li><strong>급격한 상승:</strong> 투자자들이 안전자산으로 도피. 기업 부도 위험 증가</li>
             </ul>
           `}
+        />
+      </div>
+
+      {/* Combined Chart */}
+      <div className="mb-8">
+        <CombinedChart
+          t10y2y={data.t10y2y}
+          unrate={data.unrate}
+          ismPmi={data.ismPmi}
+          hyOas={data.hyOas}
         />
       </div>
 
