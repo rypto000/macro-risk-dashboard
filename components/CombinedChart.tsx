@@ -64,6 +64,8 @@ export default function CombinedChart({
 
   const [zoomRange, setZoomRange] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
   const chartRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; rangeStart: number; rangeEnd: number } | null>(null);
 
   // Memoize min/max calculation
   const t10y2yMinMax = useMemo(() => getMinMax(t10y2y), [t10y2y]);
@@ -180,6 +182,60 @@ export default function CombinedChart({
     }
   }, []);
 
+  // Mouse drag handler for panning
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (chartRef.current && chartRef.current.contains(e.target as Node)) {
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX,
+          rangeStart: zoomRange.start,
+          rangeEnd: zoomRange.end
+        });
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging && dragStart && chartRef.current) {
+        const deltaX = e.clientX - dragStart.x;
+        const chartWidth = chartRef.current.offsetWidth;
+        const currentRange = dragStart.rangeEnd - dragStart.rangeStart;
+
+        // Convert pixel movement to range delta
+        const rangeDelta = -(deltaX / chartWidth) * currentRange;
+
+        let newStart = dragStart.rangeStart + rangeDelta;
+        let newEnd = dragStart.rangeEnd + rangeDelta;
+
+        // Clamp to valid range
+        if (newStart < 0) {
+          newStart = 0;
+          newEnd = currentRange;
+        } else if (newEnd > 1) {
+          newEnd = 1;
+          newStart = 1 - currentRange;
+        }
+
+        setZoomRange({ start: newStart, end: newEnd });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setDragStart(null);
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragStart, zoomRange]);
+
   // Apply zoom to data with better downsampling for performance
   const visibleData = useMemo(() => {
     const startIdx = Math.floor(zoomRange.start * combinedData.length);
@@ -205,7 +261,7 @@ export default function CombinedChart({
     <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
       <h2 className="text-2xl font-bold mb-4 text-white">📊 종합 지표 차트 (위험도 0-100)</h2>
       <p className="text-sm text-gray-400 mb-4">
-        💡 마우스 스크롤: 확대/축소 | Shift + 스크롤: 좌우 이동
+        💡 마우스 스크롤: 확대/축소 | Shift + 스크롤: 좌우 이동 | 클릭 드래그: 좌우 이동
       </p>
 
       {/* Toggle Checkboxes */}
@@ -259,7 +315,7 @@ export default function CombinedChart({
         </label>
       </div>
 
-      <div ref={chartRef}>
+      <div ref={chartRef} className={isDragging ? 'cursor-grabbing' : 'cursor-grab'}>
         <ResponsiveContainer width="100%" height={500}>
           <LineChart data={visibleData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -334,7 +390,7 @@ export default function CombinedChart({
       <p className="mt-4 text-xs text-gray-400">
         * 모든 지표를 0-100 위험도 스케일로 정규화 (100 = 최고 위험, 0 = 안전)
         <br />
-        * 차트 위에서 마우스 스크롤로 확대/축소, Shift+스크롤로 좌우 이동 가능
+        * 차트 위에서 마우스 스크롤로 확대/축소, Shift+스크롤 또는 클릭 드래그로 좌우 이동 가능
       </p>
     </div>
   );

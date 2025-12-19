@@ -47,7 +47,8 @@ export default function IndicatorChart({
   color,
   explanation
 }: IndicatorChartProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isExplanationOpen, setIsExplanationOpen] = useState(false);
+  const [isDataOpen, setIsDataOpen] = useState(false);
 
   return (
     <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
@@ -90,19 +91,68 @@ export default function IndicatorChart({
       {explanation && (
         <div className="mt-4 border-t border-slate-700 pt-4">
           <button
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={() => setIsExplanationOpen(!isExplanationOpen)}
             className="flex items-center text-sm text-gray-400 hover:text-gray-200 font-medium"
           >
-            <span className="mr-2">{isOpen ? '▼' : '▶'}</span>
+            <span className="mr-2">{isExplanationOpen ? '▼' : '▶'}</span>
             지표 설명 보기
           </button>
-          {isOpen && (
+          {isExplanationOpen && (
             <div className="mt-3 text-sm text-gray-300 bg-slate-900 p-4 rounded border border-slate-700">
               <div dangerouslySetInnerHTML={{ __html: explanation }} />
             </div>
           )}
         </div>
       )}
+
+      {/* Data Table */}
+      <div className="mt-4 border-t border-slate-700 pt-4">
+        <button
+          onClick={() => setIsDataOpen(!isDataOpen)}
+          className="flex items-center text-sm text-gray-400 hover:text-gray-200 font-medium"
+        >
+          <span className="mr-2">{isDataOpen ? '▼' : '▶'}</span>
+          데이터 보기 ({data.length}개)
+        </button>
+        {isDataOpen && (
+          <div className="mt-3 bg-slate-900 rounded border border-slate-700 overflow-hidden">
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-slate-800 text-gray-300">
+                  <tr>
+                    <th className="px-4 py-2 text-left">날짜</th>
+                    <th className="px-4 py-2 text-right">값</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-300">
+                  {data
+                    .slice()
+                    .reverse()
+                    .map((item, index) => (
+                      <tr
+                        key={item.date}
+                        className={`border-t border-slate-700 ${
+                          index % 2 === 0 ? 'bg-slate-900' : 'bg-slate-850'
+                        } hover:bg-slate-700`}
+                      >
+                        <td className="px-4 py-2">
+                          {new Date(item.date).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit'
+                          })}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono">
+                          {item.value !== null ? item.value.toFixed(2) : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

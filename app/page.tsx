@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import IndicatorChart from '../components/IndicatorChart';
 import SummaryTable from '../components/SummaryTable';
 import CombinedChart from '../components/CombinedChart';
-import DataTable from '../components/DataTable';
 
 interface DataPoint {
   date: string;
@@ -223,16 +222,6 @@ export default function Page() {
               <li><strong>급격한 상승:</strong> 투자자들이 안전자산으로 도피. 기업 부도 위험 증가</li>
             </ul>
           `}
-        />
-      </div>
-
-      {/* Data Table */}
-      <div className="mt-8">
-        <DataTable
-          t10y2y={data.t10y2y}
-          unrate={data.unrate}
-          ismPmi={data.ismPmi}
-          hyOas={data.hyOas}
         />
       </div>
 

@@ -1,8 +1,24 @@
 import { NextResponse } from 'next/server';
 import { ismPmiHistorical } from '../../../lib/ism-pmi-data';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const FRED_API_KEY = process.env.FRED_API_KEY || '';
 const FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations';
+
+// Load backup data
+function loadBackupData() {
+  try {
+    const backupPath = path.join(process.cwd(), 'data', 'backup.json');
+    if (fs.existsSync(backupPath)) {
+      const backupData = fs.readFileSync(backupPath, 'utf-8');
+      return JSON.parse(backupData);
+    }
+  } catch (error) {
+    console.error('Error loading backup data:', error);
+  }
+  return null;
+}
 
 interface FredDataPoint {
   date: string;
@@ -68,30 +84,58 @@ async function fetchIsmPmiData() {
 
 export async function GET() {
   try {
-    if (!FRED_API_KEY) {
-      return NextResponse.json(
-        { error: 'FRED_API_KEY not configured' },
-        { status: 500 }
-      );
+    // Try to fetch fresh data
+    if (FRED_API_KEY) {
+      try {
+        const [t10y2y, unrate, hyOas, ismPmi] = await Promise.all([
+          fetchFredData('T10Y2Y'),
+          fetchFredData('UNRATE'),
+          fetchFredData('BAMLH0A0HYM2'),
+          fetchIsmPmiData()
+        ]);
+
+        return NextResponse.json({
+          t10y2y: t10y2y.reverse(),
+          unrate: unrate.reverse(),
+          hyOas: hyOas.reverse(),
+          ismPmi: ismPmi,
+          lastUpdated: new Date().toISOString(),
+          source: 'live'
+        });
+      } catch (apiError) {
+        console.error('API fetch failed, trying backup:', apiError);
+      }
     }
 
-    // Fetch all indicators in parallel
-    const [t10y2y, unrate, hyOas, ismPmi] = await Promise.all([
-      fetchFredData('T10Y2Y'),    // 10Y-2Y spread
-      fetchFredData('UNRATE'),    // Unemployment rate
-      fetchFredData('BAMLH0A0HYM2'), // High Yield OAS
-      fetchIsmPmiData()           // ISM PMI
-    ]);
+    // Fallback to backup data
+    const backupData = loadBackupData();
+    if (backupData) {
+      console.log('Using backup data');
+      return NextResponse.json({
+        ...backupData,
+        source: 'backup',
+        backupDate: backupData.lastUpdated
+      });
+    }
 
-    return NextResponse.json({
-      t10y2y: t10y2y.reverse(),
-      unrate: unrate.reverse(),
-      hyOas: hyOas.reverse(),
-      ismPmi: ismPmi,
-      lastUpdated: new Date().toISOString()
-    });
+    // No backup available
+    return NextResponse.json(
+      { error: 'No data available (API failed and no backup found)' },
+      { status: 503 }
+    );
   } catch (error) {
     console.error('FRED API Error:', error);
+
+    // Last resort: try backup
+    const backupData = loadBackupData();
+    if (backupData) {
+      return NextResponse.json({
+        ...backupData,
+        source: 'backup',
+        backupDate: backupData.lastUpdated
+      });
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch data' },
       { status: 500 }

@@ -34,3 +34,5 @@ next-env.d.ts
 
 # Google credentials
 *.json
+# But allow data backup
+!data/backup.json
