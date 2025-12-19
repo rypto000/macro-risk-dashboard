@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ismPmiHistorical } from '@/lib/ism-pmi-data';
+import { ismPmiHistorical } from '../../../lib/ism-pmi-data';
 
 interface DataPoint {
   date: string;
