@@ -52,10 +52,11 @@ export default function IndicatorChart({
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 11, angle: -45 }}
+            height={80}
             tickFormatter={(date) => {
               const d = new Date(date);
-              return `${d.getMonth() + 1}/${d.getFullYear().toString().slice(2)}`;
+              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             }}
           />
           <YAxis tick={{ fontSize: 12 }} />
