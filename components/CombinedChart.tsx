@@ -15,29 +15,17 @@ interface CombinedChartProps {
   hyOas: DataPoint[];
 }
 
-// Normalize functions: Convert to 0-100 risk scale (100 = highest risk)
-const normalizeT10Y2Y = (value: number | null): number | null => {
-  if (value === null) return null;
-  // -3 (inverted) = 100 risk, +3 (normal) = 0 risk
-  return Math.max(0, Math.min(100, ((3 - value) / 6) * 100));
+// Helper to get min/max from data
+const getMinMax = (data: DataPoint[]) => {
+  const values = data.map(d => d.value).filter(v => v !== null) as number[];
+  return { min: Math.min(...values), max: Math.max(...values) };
 };
 
-const normalizeUnrate = (value: number | null): number | null => {
+// Dynamic normalize function
+const normalize = (value: number | null, min: number, max: number, invert: boolean = false): number | null => {
   if (value === null) return null;
-  // 3% = 0 risk, 10% = 100 risk
-  return Math.max(0, Math.min(100, ((value - 3) / 7) * 100));
-};
-
-const normalizeIsmPmi = (value: number | null): number | null => {
-  if (value === null) return null;
-  // 65 = 0 risk, 30 = 100 risk
-  return Math.max(0, Math.min(100, ((65 - value) / 35) * 100));
-};
-
-const normalizeHyOas = (value: number | null): number | null => {
-  if (value === null) return null;
-  // 2% = 0 risk, 15% = 100 risk
-  return Math.max(0, Math.min(100, ((value - 2) / 13) * 100));
+  const normalized = ((value - min) / (max - min)) * 100;
+  return invert ? 100 - normalized : normalized;
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -74,27 +62,37 @@ export default function CombinedChart({
     hyOas: true
   });
 
+  // Calculate min/max for each dataset
+  const t10y2yMinMax = getMinMax(t10y2y);
+  const unrateMinMax = getMinMax(unrate);
+  const ismPmiMinMax = getMinMax(ismPmi);
+  const hyOasMinMax = getMinMax(hyOas);
+
   // Combine all data by date and normalize to 0-100 risk scale
   const dateMap = new Map<string, any>();
 
   t10y2y.forEach(d => {
     if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    dateMap.get(d.date)!.t10y2y = normalizeT10Y2Y(d.value);
+    // T10Y2Y: invert=true (negative/lower values = higher risk)
+    dateMap.get(d.date)!.t10y2y = normalize(d.value, t10y2yMinMax.min, t10y2yMinMax.max, true);
   });
 
   unrate.forEach(d => {
     if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    dateMap.get(d.date)!.unrate = normalizeUnrate(d.value);
+    // UNRATE: invert=false (higher unemployment = higher risk)
+    dateMap.get(d.date)!.unrate = normalize(d.value, unrateMinMax.min, unrateMinMax.max, false);
   });
 
   ismPmi.forEach(d => {
     if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    dateMap.get(d.date)!.ismPmi = normalizeIsmPmi(d.value);
+    // ISM PMI: invert=true (lower PMI = higher risk)
+    dateMap.get(d.date)!.ismPmi = normalize(d.value, ismPmiMinMax.min, ismPmiMinMax.max, true);
   });
 
   hyOas.forEach(d => {
     if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    dateMap.get(d.date)!.hyOas = normalizeHyOas(d.value);
+    // HY OAS: invert=false (higher spread = higher risk)
+    dateMap.get(d.date)!.hyOas = normalize(d.value, hyOasMinMax.min, hyOasMinMax.max, false);
   });
 
   const combinedData = Array.from(dateMap.values()).sort((a, b) =>

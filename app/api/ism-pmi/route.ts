@@ -16,12 +16,23 @@ export async function GET() {
     const response = await fetch(apiUrl);
     const apiData = await response.json();
 
-    const recentData: DataPoint[] = apiData.series?.observations
-      ?.map((obs: any) => ({
-        date: obs.period,
-        value: parseFloat(obs.value) || null
-      }))
-      .filter((d: DataPoint) => d.date >= '2020-05-01') || [];
+    // DBnomics returns data in series.docs[0] with period and value arrays
+    const doc = apiData.series?.docs?.[0];
+    const recentData: DataPoint[] = [];
+
+    if (doc && doc.period && doc.value) {
+      for (let i = 0; i < doc.period.length; i++) {
+        const date = doc.period[i] + '-01'; // Convert YYYY-MM to YYYY-MM-01
+        const value = parseFloat(doc.value[i]);
+        // Filter out erroneous data: PMI should be between 30-100 (historically never below 30)
+        if (date >= '2020-05-01' && value >= 30 && value <= 100) {
+          recentData.push({
+            date: date,
+            value: value
+          });
+        }
+      }
+    }
 
     // Combine historical and recent data
     const combinedData = [...historicalData, ...recentData].sort((a, b) =>
