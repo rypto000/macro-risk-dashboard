@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import IndicatorChart from '../components/IndicatorChart';
 import SummaryTable from '../components/SummaryTable';
+import CombinedChart from '../components/CombinedChart';
 
 interface DataPoint {
   date: string;
@@ -138,7 +139,17 @@ export default function Page() {
         <SummaryTable indicators={indicators} />
       </div>
 
-      {/* Charts */}
+      {/* Combined Chart */}
+      <div className="mb-8">
+        <CombinedChart
+          t10y2y={data.t10y2y}
+          unrate={data.unrate}
+          ismPmi={data.ismPmi}
+          hyOas={data.hyOas}
+        />
+      </div>
+
+      {/* Individual Charts */}
       <div className="space-y-8">
         <IndicatorChart
           data={data.t10y2y}
