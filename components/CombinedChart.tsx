@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from 'recharts';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface DataPoint {
   date: string;
@@ -62,50 +62,151 @@ export default function CombinedChart({
     hyOas: true
   });
 
-  // Calculate min/max for each dataset
-  const t10y2yMinMax = getMinMax(t10y2y);
-  const unrateMinMax = getMinMax(unrate);
-  const ismPmiMinMax = getMinMax(ismPmi);
-  const hyOasMinMax = getMinMax(hyOas);
+  const [zoomRange, setZoomRange] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
+  const chartRef = useRef<HTMLDivElement>(null);
 
-  // Combine all data by date and normalize to 0-100 risk scale
-  const dateMap = new Map<string, any>();
+  // Memoize min/max calculation
+  const t10y2yMinMax = useMemo(() => getMinMax(t10y2y), [t10y2y]);
+  const unrateMinMax = useMemo(() => getMinMax(unrate), [unrate]);
+  const ismPmiMinMax = useMemo(() => getMinMax(ismPmi), [ismPmi]);
+  const hyOasMinMax = useMemo(() => getMinMax(hyOas), [hyOas]);
 
-  t10y2y.forEach(d => {
-    if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    // T10Y2Y: invert=true (negative/lower values = higher risk)
-    dateMap.get(d.date)!.t10y2y = normalize(d.value, t10y2yMinMax.min, t10y2yMinMax.max, true);
-  });
+  // Memoize combined data
+  const combinedData = useMemo(() => {
+    const dateMap = new Map<string, any>();
 
-  unrate.forEach(d => {
-    if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    // UNRATE: invert=false (higher unemployment = higher risk)
-    dateMap.get(d.date)!.unrate = normalize(d.value, unrateMinMax.min, unrateMinMax.max, false);
-  });
+    t10y2y.forEach(d => {
+      if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
+      // T10Y2Y: invert=true (negative/lower values = higher risk)
+      dateMap.get(d.date)!.t10y2y = normalize(d.value, t10y2yMinMax.min, t10y2yMinMax.max, true);
+    });
 
-  ismPmi.forEach(d => {
-    if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    // ISM PMI: invert=true (lower PMI = higher risk)
-    dateMap.get(d.date)!.ismPmi = normalize(d.value, ismPmiMinMax.min, ismPmiMinMax.max, true);
-  });
+    unrate.forEach(d => {
+      if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
+      // UNRATE: invert=false (higher unemployment = higher risk)
+      dateMap.get(d.date)!.unrate = normalize(d.value, unrateMinMax.min, unrateMinMax.max, false);
+    });
 
-  hyOas.forEach(d => {
-    if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
-    // HY OAS: invert=false (higher spread = higher risk)
-    dateMap.get(d.date)!.hyOas = normalize(d.value, hyOasMinMax.min, hyOasMinMax.max, false);
-  });
+    ismPmi.forEach(d => {
+      if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
+      // ISM PMI: invert=true (lower PMI = higher risk)
+      dateMap.get(d.date)!.ismPmi = normalize(d.value, ismPmiMinMax.min, ismPmiMinMax.max, true);
+    });
 
-  const combinedData = Array.from(dateMap.values()).sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
+    hyOas.forEach(d => {
+      if (!dateMap.has(d.date)) dateMap.set(d.date, { date: d.date });
+      // HY OAS: invert=false (higher spread = higher risk)
+      dateMap.get(d.date)!.hyOas = normalize(d.value, hyOasMinMax.min, hyOasMinMax.max, false);
+    });
+
+    return Array.from(dateMap.values()).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+  }, [t10y2y, unrate, ismPmi, hyOas, t10y2yMinMax, unrateMinMax, ismPmiMinMax, hyOasMinMax]);
 
   const toggleIndicator = (key: keyof typeof visible) => {
     setVisible(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // Mouse wheel zoom and pan handler with throttle
+  useEffect(() => {
+    let lastUpdate = 0;
+    const throttleMs = 50; // Update max once per 50ms for smoother performance
+
+    const handleWheel = (e: WheelEvent) => {
+      if (chartRef.current && chartRef.current.contains(e.target as Node)) {
+        e.preventDefault();
+
+        const now = Date.now();
+        if (now - lastUpdate < throttleMs) {
+          return; // Skip this event if too soon after last update
+        }
+        lastUpdate = now;
+
+        if (e.shiftKey) {
+          // Shift + Scroll: Pan left/right
+          const panSpeed = 0.05;
+          const delta = e.deltaY > 0 ? panSpeed : -panSpeed;
+
+          setZoomRange(prev => {
+            const currentRange = prev.end - prev.start;
+            let newStart = prev.start + delta;
+            let newEnd = prev.end + delta;
+
+            // Clamp to valid range
+            if (newStart < 0) {
+              newStart = 0;
+              newEnd = currentRange;
+            } else if (newEnd > 1) {
+              newEnd = 1;
+              newStart = 1 - currentRange;
+            }
+
+            return { start: newStart, end: newEnd };
+          });
+        } else {
+          // Normal Scroll: Zoom in/out
+          const zoomSpeed = 0.1;
+          const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed; // Scroll down = zoom out, scroll up = zoom in
+
+          setZoomRange(prev => {
+            const currentRange = prev.end - prev.start;
+            const newRange = Math.max(0.1, Math.min(1, currentRange - delta));
+
+            // Calculate center point to zoom around
+            const center = (prev.start + prev.end) / 2;
+            let newStart = center - newRange / 2;
+            let newEnd = center + newRange / 2;
+
+            // Clamp to valid range
+            if (newStart < 0) {
+              newStart = 0;
+              newEnd = newRange;
+            } else if (newEnd > 1) {
+              newEnd = 1;
+              newStart = 1 - newRange;
+            }
+
+            return { start: newStart, end: newEnd };
+          });
+        }
+      }
+    };
+
+    const chartElement = chartRef.current;
+    if (chartElement) {
+      chartElement.addEventListener('wheel', handleWheel, { passive: false });
+      return () => chartElement.removeEventListener('wheel', handleWheel);
+    }
+  }, []);
+
+  // Apply zoom to data with better downsampling for performance
+  const visibleData = useMemo(() => {
+    const startIdx = Math.floor(zoomRange.start * combinedData.length);
+    const endIdx = Math.ceil(zoomRange.end * combinedData.length);
+    const slicedData = combinedData.slice(startIdx, endIdx);
+
+    // Downsample if too many points (keep max 1000 points)
+    const maxPoints = 1000;
+    if (slicedData.length > maxPoints) {
+      const step = slicedData.length / maxPoints;
+      const downsampled = [];
+      for (let i = 0; i < maxPoints; i++) {
+        const idx = Math.floor(i * step);
+        downsampled.push(slicedData[idx]);
+      }
+      return downsampled;
+    }
+
+    return slicedData;
+  }, [combinedData, zoomRange]);
+
   return (
     <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
       <h2 className="text-2xl font-bold mb-4 text-white">📊 종합 지표 차트 (위험도 0-100)</h2>
+      <p className="text-sm text-gray-400 mb-4">
+        💡 마우스 스크롤: 확대/축소 | Shift + 스크롤: 좌우 이동
+      </p>
 
       {/* Toggle Checkboxes */}
       <div className="flex flex-wrap gap-4 mb-4">
@@ -158,8 +259,9 @@ export default function CombinedChart({
         </label>
       </div>
 
-      <ResponsiveContainer width="100%" height={500}>
-        <LineChart data={combinedData}>
+      <div ref={chartRef}>
+        <ResponsiveContainer width="100%" height={500}>
+          <LineChart data={visibleData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
           <XAxis
             dataKey="date"
@@ -181,16 +283,6 @@ export default function CombinedChart({
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
-          <Brush
-            dataKey="date"
-            height={30}
-            stroke="#475569"
-            fill="#1e293b"
-            tickFormatter={(date) => {
-              const d = new Date(date);
-              return `${d.getFullYear()}`;
-            }}
-          />
 
           {visible.t10y2y && (
             <Line
@@ -237,11 +329,12 @@ export default function CombinedChart({
           )}
         </LineChart>
       </ResponsiveContainer>
+      </div>
 
       <p className="mt-4 text-xs text-gray-400">
         * 모든 지표를 0-100 위험도 스케일로 정규화 (100 = 최고 위험, 0 = 안전)
         <br />
-        * 차트 하단 슬라이더를 드래그하거나 클릭해서 특정 기간 확대 가능
+        * 차트 위에서 마우스 스크롤로 확대/축소, Shift+스크롤로 좌우 이동 가능
       </p>
     </div>
   );
