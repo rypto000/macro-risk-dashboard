@@ -40,20 +40,55 @@ async function fetchCryptoFearGreed() {
   }
 }
 
-// Scrape Stock Fear & Greed from CNN
+// Fetch Stock Fear & Greed from CNN
 async function fetchStockFearGreed() {
   try {
-    const response = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
-      next: { revalidate: 86400 } // Cache for 24 hours
+    // Try primary endpoint
+    let response = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
+      },
+      next: { revalidate: 86400 }
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch stock fear & greed');
+      // Fallback: try alternative endpoint
+      response = await fetch('https://money.cnn.com/data/fear-and-greed/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        next: { revalidate: 86400 }
+      });
+
+      if (!response.ok) {
+        throw new Error('Both CNN endpoints failed');
+      }
+
+      // Parse HTML for the value (simplified - in production would use proper HTML parsing)
+      const html = await response.text();
+      const scoreMatch = html.match(/<div[^>]*id="needleChart"[^>]*data-score="(\d+)"/);
+      const ratingMatch = html.match(/<p[^>]*class="[^"]*market-fng-gauge__dial-number-label[^"]*">([^<]+)<\/p>/);
+
+      if (scoreMatch && ratingMatch) {
+        return {
+          value: parseInt(scoreMatch[1]),
+          label: ratingMatch[1].trim(),
+          lastUpdated: new Date().toISOString()
+        };
+      }
+
+      throw new Error('Could not parse CNN page');
     }
 
+    // Primary endpoint succeeded
     const data = await response.json();
-    const currentScore = data.fear_and_greed.score;
-    const rating = data.fear_and_greed.rating;
+    const currentScore = data.fear_and_greed?.score || data.score;
+    const rating = data.fear_and_greed?.rating || data.rating;
+
+    if (currentScore === undefined || !rating) {
+      throw new Error('Invalid response structure');
+    }
 
     return {
       value: Math.round(currentScore),

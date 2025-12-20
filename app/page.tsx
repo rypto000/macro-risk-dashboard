@@ -194,6 +194,11 @@ export default function Page() {
         />
       </div>
 
+      {/* Fear & Greed Indices */}
+      <div className="mb-8">
+        <FearGreedCards />
+      </div>
+
       {/* Summary Table */}
       <div className="mb-8">
         <SummaryTable indicators={indicators} />
@@ -283,11 +288,6 @@ export default function Page() {
           ismPmi={data.ismPmi}
           hyOas={data.hyOas}
         />
-      </div>
-
-      {/* Fear & Greed Indices */}
-      <div className="mb-8">
-        <FearGreedCards />
       </div>
 
       {/* Footer */}
