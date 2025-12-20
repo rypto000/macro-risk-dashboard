@@ -24,15 +24,15 @@ export default function RiskScoreCard({
   const regimeInfo = REGIME_THRESHOLDS[currentRegime];
   const actions = ACTION_RECOMMENDATIONS[currentRegime];
 
-  // Get last 6 months of data for sparkline
-  const last6Months = useMemo(() => {
-    return historicalScores.slice(-6);
+  // Get last 36 months (3 years) of data for sparkline
+  const last36Months = useMemo(() => {
+    return historicalScores.slice(-36);
   }, [historicalScores]);
 
   // Sparkline chart option
   const sparklineOption = useMemo(() => {
-    const dates = last6Months.map(d => d.date);
-    const scores = last6Months.map(d => d.score);
+    const dates = last36Months.map(d => d.date);
+    const scores = last36Months.map(d => d.score);
 
     return {
       grid: {
@@ -111,7 +111,7 @@ export default function RiskScoreCard({
         }
       }
     };
-  }, [last6Months, regimeInfo.color]);
+  }, [last36Months, regimeInfo.color]);
 
   // Gauge chart for current score
   const gaugeOption = useMemo(() => {
@@ -219,11 +219,11 @@ export default function RiskScoreCard({
           {/* Sparkline */}
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-gray-300 mb-2">
-              📈 최근 6개월 추이
+              📈 최근 3년 추이
             </h3>
             <ReactECharts
               option={sparklineOption}
-              style={{ height: '100px' }}
+              style={{ height: '120px' }}
               opts={{ renderer: 'canvas' }}
             />
           </div>
