@@ -29,42 +29,79 @@ export default function RiskScoreCard({
     return historicalScores.slice(-36);
   }, [historicalScores]);
 
-  // Sparkline chart option
-  const sparklineOption = useMemo(() => {
+  // Historical trend chart option (full chart with axes)
+  const trendChartOption = useMemo(() => {
     const dates = last36Months.map(d => d.date);
     const scores = last36Months.map(d => d.score);
 
     return {
       grid: {
-        left: 0,
-        right: 0,
-        top: 5,
-        bottom: 20,
-        containLabel: false
+        left: '8%',
+        right: '4%',
+        top: '10%',
+        bottom: '15%',
+        containLabel: true
       },
       xAxis: {
         type: 'category',
         data: dates,
-        show: false
+        axisLabel: {
+          rotate: 45,
+          color: '#94a3b8',
+          fontSize: 10,
+          formatter: function(value: string) {
+            const d = new Date(value);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          }
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#475569'
+          }
+        }
       },
       yAxis: {
         type: 'value',
         min: 0,
         max: 1,
-        show: false
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 11,
+          formatter: function(value: number) {
+            return value.toFixed(1);
+          }
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#475569'
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: '#334155',
+            type: 'dashed'
+          }
+        },
+        name: 'Risk Score',
+        nameTextStyle: {
+          color: '#94a3b8',
+          fontSize: 11
+        }
       },
       series: [
         {
           type: 'line',
           data: scores,
-          smooth: true,
-          symbol: 'none',
-          connectNulls: false, // Don't connect across null gaps
+          smooth: false,
+          symbol: 'circle',
+          symbolSize: 4,
+          connectNulls: false,
           lineStyle: {
-            color: regimeInfo.color === 'green' ? '#10b981' :
-                   regimeInfo.color === 'yellow' ? '#f59e0b' :
-                   regimeInfo.color === 'orange' ? '#f97316' : '#ef4444',
+            color: '#8b5cf6',
             width: 2
+          },
+          itemStyle: {
+            color: '#8b5cf6'
           },
           areaStyle: {
             color: {
@@ -76,16 +113,45 @@ export default function RiskScoreCard({
               colorStops: [
                 {
                   offset: 0,
-                  color: regimeInfo.color === 'green' ? 'rgba(16, 185, 129, 0.3)' :
-                         regimeInfo.color === 'yellow' ? 'rgba(245, 158, 11, 0.3)' :
-                         regimeInfo.color === 'orange' ? 'rgba(249, 115, 22, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                  color: 'rgba(139, 92, 246, 0.3)'
                 },
                 {
                   offset: 1,
-                  color: 'rgba(0, 0, 0, 0)'
+                  color: 'rgba(139, 92, 246, 0.05)'
                 }
               ]
             }
+          },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            label: {
+              show: true,
+              position: 'end',
+              color: '#94a3b8',
+              fontSize: 10
+            },
+            lineStyle: {
+              type: 'dashed',
+              width: 1
+            },
+            data: [
+              {
+                yAxis: 0.30,
+                label: { formatter: '0.30 (Neutral)' },
+                lineStyle: { color: '#f59e0b' }
+              },
+              {
+                yAxis: 0.55,
+                label: { formatter: '0.55 (Risk-Off)' },
+                lineStyle: { color: '#f97316' }
+              },
+              {
+                yAxis: 0.75,
+                label: { formatter: '0.75 (Crisis)' },
+                lineStyle: { color: '#10b981' }
+              }
+            ]
           }
         }
       ],
@@ -103,15 +169,20 @@ export default function RiskScoreCard({
             year: 'numeric',
             month: 'long'
           });
-          // Handle null values
           if (param.value === null || param.value === undefined) {
             return `${dateStr}<br/>Risk Score: N/A`;
           }
-          return `${dateStr}<br/>Risk Score: ${param.value.toFixed(3)}`;
+          const score = param.value;
+          let regime = 'Risk-On';
+          if (score >= 0.75) regime = 'Crisis';
+          else if (score >= 0.55) regime = 'Risk-Off';
+          else if (score >= 0.30) regime = 'Neutral';
+
+          return `${dateStr}<br/>Score: ${score.toFixed(3)}<br/>Regime: ${regime}`;
         }
       }
     };
-  }, [last36Months, regimeInfo.color]);
+  }, [last36Months]);
 
   // Gauge chart for current score
   const gaugeOption = useMemo(() => {
@@ -216,14 +287,14 @@ export default function RiskScoreCard({
 
         {/* Right: Sparkline + Actions */}
         <div className="flex flex-col">
-          {/* Sparkline */}
+          {/* Historical Trend Chart */}
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-gray-300 mb-2">
               📈 최근 3년 추이
             </h3>
             <ReactECharts
-              option={sparklineOption}
-              style={{ height: '120px' }}
+              option={trendChartOption}
+              style={{ height: '200px' }}
               opts={{ renderer: 'canvas' }}
             />
           </div>
