@@ -24,6 +24,11 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+
+# monitoring state files
+state.json
+scripts/state.json
 
 # vercel
 .vercel
