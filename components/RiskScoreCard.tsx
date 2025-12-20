@@ -24,15 +24,15 @@ export default function RiskScoreCard({
   const regimeInfo = REGIME_THRESHOLDS[currentRegime];
   const actions = ACTION_RECOMMENDATIONS[currentRegime];
 
-  // Get last 36 months (3 years) of data for sparkline
-  const last36Months = useMemo(() => {
-    return historicalScores.slice(-36);
+  // Get last 60 months (5 years) of data for trend chart
+  const last60Months = useMemo(() => {
+    return historicalScores.slice(-60);
   }, [historicalScores]);
 
   // Historical trend chart option (full chart with axes)
   const trendChartOption = useMemo(() => {
-    const dates = last36Months.map(d => d.date);
-    const scores = last36Months.map(d => d.score);
+    const dates = last60Months.map(d => d.date);
+    const scores = last60Months.map(d => d.score);
 
     return {
       grid: {
@@ -182,7 +182,7 @@ export default function RiskScoreCard({
         }
       }
     };
-  }, [last36Months]);
+  }, [last60Months]);
 
   // Gauge chart for current score
   const gaugeOption = useMemo(() => {
@@ -290,7 +290,7 @@ export default function RiskScoreCard({
           {/* Historical Trend Chart */}
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-gray-300 mb-2">
-              📈 최근 3년 추이
+              📈 최근 5년 추이
             </h3>
             <ReactECharts
               option={trendChartOption}

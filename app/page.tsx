@@ -76,7 +76,7 @@ export default function Page() {
     let lastRegimeChange: string | undefined = undefined;
     if (historicalScores.length >= 2) {
       const recentScores = historicalScores
-        .slice(-36) // Last 3 years
+        .slice(-60) // Last 5 years
         .filter(s => s.score !== null) as { date: string; score: number }[];
 
       for (let i = recentScores.length - 1; i > 0; i--) {

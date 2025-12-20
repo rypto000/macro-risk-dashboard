@@ -180,11 +180,11 @@ export function calculateHistoricalScores(
   const sortedIsmPmi = [...ismPmiData].sort((a, b) => a.date.localeCompare(b.date));
   const sortedHyOas = [...hyOasData].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Generate 36 month-end reference dates (last 3 years)
+  // Generate 60 month-end reference dates (last 5 years)
   const monthlyDates: string[] = [];
   const now = new Date();
 
-  for (let i = 0; i < 36; i++) {
+  for (let i = 0; i < 60; i++) {
     const year = now.getFullYear();
     const month = now.getMonth() - i;
 
