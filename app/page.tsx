@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import IndicatorChart from '../components/IndicatorChart';
 import SummaryTable from '../components/SummaryTable';
 import CombinedChart from '../components/CombinedChart';
+import RiskScoreCard from '../components/RiskScoreCard';
+import {
+  calculateCompositeScore,
+  calculateHistoricalScores,
+  detectRegime,
+  RegimeType
+} from '../lib/risk-score';
 
 interface DataPoint {
   date: string;
@@ -40,6 +47,57 @@ export default function Page() {
       });
   }, []);
 
+  // Calculate risk scores (must be before conditional returns)
+  const riskScoreData = useMemo(() => {
+    if (!data) return null;
+
+    const latestT10Y2Y = data.t10y2y[data.t10y2y.length - 1]?.value;
+    const latestUnrate = data.unrate[data.unrate.length - 1]?.value;
+    const latestHyOas = data.hyOas[data.hyOas.length - 1]?.value;
+    const latestIsmPmi = data.ismPmi[data.ismPmi.length - 1]?.value;
+
+    const currentScore = calculateCompositeScore(
+      latestT10Y2Y,
+      latestHyOas,
+      latestIsmPmi,
+      latestUnrate
+    );
+
+    const historicalScores = calculateHistoricalScores(
+      data.t10y2y,
+      data.unrate,
+      data.ismPmi,
+      data.hyOas
+    );
+
+    const currentRegime = detectRegime(currentScore, null);
+
+    // Find last regime change
+    let lastRegimeChange: string | undefined = undefined;
+    if (historicalScores.length >= 2) {
+      const recentScores = historicalScores.slice(-6);
+      for (let i = recentScores.length - 1; i > 0; i--) {
+        const prevRegime = detectRegime(recentScores[i - 1].score, null);
+        const currRegime = detectRegime(recentScores[i].score, prevRegime);
+        if (prevRegime !== currRegime) {
+          lastRegimeChange = recentScores[i].date;
+          break;
+        }
+      }
+    }
+
+    return {
+      latestT10Y2Y,
+      latestUnrate,
+      latestHyOas,
+      latestIsmPmi,
+      currentScore,
+      historicalScores,
+      currentRegime,
+      lastRegimeChange
+    };
+  }, [data]);
+
   if (loading) {
     return (
       <main className="min-h-screen p-8">
@@ -68,26 +126,20 @@ export default function Page() {
     );
   }
 
-  if (!data) {
+  if (!data || !riskScoreData) {
     return null;
   }
 
-  // Get latest values
-  const latestT10Y2Y = data.t10y2y[data.t10y2y.length - 1]?.value;
-  const latestUnrate = data.unrate[data.unrate.length - 1]?.value;
-  const latestHyOas = data.hyOas[data.hyOas.length - 1]?.value;
-  const latestIsmPmi = data.ismPmi[data.ismPmi.length - 1]?.value;
-
-  // Calculate overall risk level
-  const warnings = [
-    latestT10Y2Y !== null && latestT10Y2Y <= 0,
-    latestUnrate !== null && latestUnrate >= 4.5,
-    latestIsmPmi !== null && latestIsmPmi < 50,
-    latestHyOas !== null && latestHyOas >= 6.0
-  ].filter(Boolean).length;
-
-  const riskLevel = warnings >= 3 ? 'RED' : warnings >= 1 ? 'YELLOW' : 'GREEN';
-  const riskColor = riskLevel === 'RED' ? 'bg-red-500' : riskLevel === 'YELLOW' ? 'bg-yellow-500' : 'bg-green-500';
+  const {
+    latestT10Y2Y,
+    latestUnrate,
+    latestHyOas,
+    latestIsmPmi,
+    currentScore,
+    historicalScores,
+    currentRegime,
+    lastRegimeChange
+  } = riskScoreData;
 
   const indicators = [
     {
@@ -124,14 +176,18 @@ export default function Page() {
     <main className="min-h-screen p-8 bg-slate-900">
       <h1 className="text-4xl font-bold mb-8 text-white">Macro Risk Dashboard</h1>
 
-      {/* Risk Level Badge */}
+      <p className="mb-6 text-gray-400">
+        마지막 업데이트: {new Date(data.lastUpdated).toLocaleString('ko-KR')}
+      </p>
+
+      {/* Risk Score Card */}
       <div className="mb-8">
-        <div className={`inline-block px-6 py-3 rounded-lg ${riskColor} text-white font-bold text-2xl`}>
-          종합위험등급: {riskLevel}
-        </div>
-        <p className="mt-2 text-gray-400">
-          마지막 업데이트: {new Date(data.lastUpdated).toLocaleString('ko-KR')}
-        </p>
+        <RiskScoreCard
+          currentScore={currentScore}
+          currentRegime={currentRegime}
+          historicalScores={historicalScores}
+          lastRegimeChange={lastRegimeChange}
+        />
       </div>
 
       {/* Summary Table */}
