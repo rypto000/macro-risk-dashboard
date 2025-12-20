@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { useState, useMemo } from 'react';
+import ReactECharts from 'echarts-for-react';
 
 interface DataPoint {
   date: string;
@@ -18,26 +18,6 @@ interface IndicatorChartProps {
   explanation?: string;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-slate-700 p-3 border border-slate-600 rounded shadow-lg">
-        <p className="text-sm font-semibold text-gray-200">
-          {new Date(label).toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </p>
-        <p className="text-lg font-bold" style={{ color: payload[0].color }}>
-          {payload[0].name}: {payload[0].value !== null ? payload[0].value.toFixed(2) : 'N/A'}
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
-
 export default function IndicatorChart({
   data,
   title,
@@ -49,199 +29,138 @@ export default function IndicatorChart({
 }: IndicatorChartProps) {
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
   const [isDataOpen, setIsDataOpen] = useState(false);
-  const [zoomRange, setZoomRange] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; rangeStart: number; rangeEnd: number } | null>(null);
 
-  // Mouse wheel zoom and pan handler with throttle
-  useEffect(() => {
-    let lastUpdate = 0;
-    const throttleMs = 50;
+  // Prepare data for ECharts
+  const chartOption = useMemo(() => {
+    const dates = data.map(d => d.date);
+    const values = data.map(d => d.value);
 
-    const handleWheel = (e: WheelEvent) => {
-      if (chartRef.current && chartRef.current.contains(e.target as Node)) {
-        e.preventDefault();
-
-        const now = Date.now();
-        if (now - lastUpdate < throttleMs) {
-          return;
-        }
-        lastUpdate = now;
-
-        if (e.shiftKey) {
-          // Shift + Scroll: Pan left/right
-          const panSpeed = 0.05;
-          const delta = e.deltaY > 0 ? panSpeed : -panSpeed;
-
-          setZoomRange(prev => {
-            const currentRange = prev.end - prev.start;
-            let newStart = prev.start + delta;
-            let newEnd = prev.end + delta;
-
-            if (newStart < 0) {
-              newStart = 0;
-              newEnd = currentRange;
-            } else if (newEnd > 1) {
-              newEnd = 1;
-              newStart = 1 - currentRange;
-            }
-
-            return { start: newStart, end: newEnd };
+    return {
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(51, 65, 85, 0.95)',
+        borderColor: '#475569',
+        textStyle: {
+          color: '#e5e7eb'
+        },
+        formatter: function(params: any) {
+          const param = params[0];
+          const date = new Date(param.axisValue);
+          const dateStr = date.toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
           });
-        } else {
-          // Normal Scroll: Zoom in/out
-          const zoomSpeed = 0.1;
-          const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
-
-          setZoomRange(prev => {
-            const currentRange = prev.end - prev.start;
-            const newRange = Math.max(0.1, Math.min(1, currentRange - delta));
-
-            const center = (prev.start + prev.end) / 2;
-            let newStart = center - newRange / 2;
-            let newEnd = center + newRange / 2;
-
-            if (newStart < 0) {
-              newStart = 0;
-              newEnd = newRange;
-            } else if (newEnd > 1) {
-              newEnd = 1;
-              newStart = 1 - newRange;
-            }
-
-            return { start: newStart, end: newEnd };
-          });
+          const value = param.value !== null && param.value !== undefined
+            ? param.value.toFixed(2)
+            : 'N/A';
+          return `${dateStr}<br/><strong>${dataKey}: ${value}</strong>`;
         }
-      }
-    };
-
-    const chartElement = chartRef.current;
-    if (chartElement) {
-      chartElement.addEventListener('wheel', handleWheel, { passive: false });
-      return () => chartElement.removeEventListener('wheel', handleWheel);
-    }
-  }, []);
-
-  // Mouse drag handler for panning
-  useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (chartRef.current && chartRef.current.contains(e.target as Node)) {
-        setIsDragging(true);
-        setDragStart({
-          x: e.clientX,
-          rangeStart: zoomRange.start,
-          rangeEnd: zoomRange.end
-        });
-      }
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging && dragStart && chartRef.current) {
-        const deltaX = e.clientX - dragStart.x;
-        const chartWidth = chartRef.current.offsetWidth;
-        const currentRange = dragStart.rangeEnd - dragStart.rangeStart;
-
-        const rangeDelta = -(deltaX / chartWidth) * currentRange;
-
-        let newStart = dragStart.rangeStart + rangeDelta;
-        let newEnd = dragStart.rangeEnd + rangeDelta;
-
-        if (newStart < 0) {
-          newStart = 0;
-          newEnd = currentRange;
-        } else if (newEnd > 1) {
-          newEnd = 1;
-          newStart = 1 - currentRange;
+      },
+      dataZoom: [
+        {
+          type: 'inside',
+          start: 0,
+          end: 100,
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: true,
+          moveOnMouseWheel: false
         }
-
-        setZoomRange({ start: newStart, end: newEnd });
-      }
+      ],
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '15%',
+        top: '10%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLabel: {
+          rotate: 45,
+          color: '#94a3b8',
+          fontSize: 11,
+          formatter: function(value: string) {
+            const d = new Date(value);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          }
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#475569'
+          }
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 12
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#475569'
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: '#334155',
+            type: 'dashed'
+          }
+        }
+      },
+      series: [
+        {
+          name: dataKey,
+          type: 'line',
+          data: values,
+          smooth: false,
+          symbol: 'none',
+          lineStyle: {
+            color: color,
+            width: 2
+          },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            label: {
+              show: true,
+              position: 'end',
+              formatter: referenceLabel,
+              color: '#ef4444'
+            },
+            lineStyle: {
+              color: '#ef4444',
+              type: 'dashed',
+              width: 2
+            },
+            data: [
+              {
+                yAxis: referenceLine
+              }
+            ]
+          }
+        }
+      ]
     };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setDragStart(null);
-    };
-
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, dragStart, zoomRange]);
-
-  // Apply zoom to data with downsampling for performance
-  const visibleData = useMemo(() => {
-    const startIdx = Math.floor(zoomRange.start * data.length);
-    const endIdx = Math.ceil(zoomRange.end * data.length);
-    const slicedData = data.slice(startIdx, endIdx);
-
-    // Downsample if too many points (keep max 1000 points)
-    const maxPoints = 1000;
-    if (slicedData.length > maxPoints) {
-      const step = slicedData.length / maxPoints;
-      const downsampled = [];
-      for (let i = 0; i < maxPoints; i++) {
-        const idx = Math.floor(i * step);
-        downsampled.push(slicedData[idx]);
-      }
-      return downsampled;
-    }
-
-    return slicedData;
-  }, [data, zoomRange]);
+  }, [data, dataKey, referenceLine, referenceLabel, color]);
 
   return (
     <div className="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
       <h3 className="text-xl font-bold mb-4 text-white">{title}</h3>
       <p className="text-sm text-gray-400 mb-4">
-        💡 마우스 스크롤: 확대/축소 | Shift + 스크롤: 좌우 이동 | 클릭 드래그: 좌우 이동
+        💡 마우스 스크롤: 확대/축소 | 클릭 드래그: 좌우 이동
       </p>
 
-      <div ref={chartRef} className={isDragging ? 'cursor-grabbing' : 'cursor-grab'}>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={visibleData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
-              angle={-45}
-              textAnchor="end"
-              height={80}
-              tickFormatter={(date) => {
-                const d = new Date(date);
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-              }}
-              stroke="#475569"
-            />
-            <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} stroke="#475569" />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <ReferenceLine
-              y={referenceLine}
-              stroke="red"
-              strokeDasharray="3 3"
-              label={referenceLabel}
-            />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={color}
-              strokeWidth={2}
-              dot={false}
-              name={dataKey}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <ReactECharts
+        option={chartOption}
+        style={{ height: '300px' }}
+        opts={{ renderer: 'canvas' }}
+      />
 
       <p className="mt-2 text-xs text-gray-400">
-        * 차트 위에서 마우스 스크롤로 확대/축소, Shift+스크롤 또는 클릭 드래그로 좌우 이동 가능
+        * 차트 위에서 마우스 스크롤로 확대/축소, 클릭 드래그로 좌우 이동 가능
       </p>
 
       {explanation && (
