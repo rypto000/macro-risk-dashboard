@@ -72,10 +72,13 @@ export default function Page() {
 
     const currentRegime = detectRegime(currentScore, null);
 
-    // Find last regime change
+    // Find last regime change (skip null scores)
     let lastRegimeChange: string | undefined = undefined;
     if (historicalScores.length >= 2) {
-      const recentScores = historicalScores.slice(-6);
+      const recentScores = historicalScores
+        .slice(-6)
+        .filter(s => s.score !== null) as { date: string; score: number }[];
+
       for (let i = recentScores.length - 1; i > 0; i--) {
         const prevRegime = detectRegime(recentScores[i - 1].score, null);
         const currRegime = detectRegime(recentScores[i].score, prevRegime);

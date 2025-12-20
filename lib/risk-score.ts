@@ -167,30 +167,72 @@ export const ACTION_RECOMMENDATIONS: Record<RegimeType, string[]> = {
   ]
 };
 
-// 7. Calculate historical scores for sparkline
+// 7. Calculate historical scores for sparkline (monthly, with forward fill)
 export function calculateHistoricalScores(
   t10y2yData: DataPoint[],
   unrateData: DataPoint[],
   ismPmiData: DataPoint[],
   hyOasData: DataPoint[]
-): { date: string; score: number }[] {
-  // Get all unique dates
-  const dateSet = new Set<string>();
-  [...t10y2yData, ...unrateData, ...ismPmiData, ...hyOasData].forEach(d => {
-    dateSet.add(d.date);
-  });
+): { date: string; score: number | null }[] {
+  // Sort all series by date (ascending)
+  const sortedT10y2y = [...t10y2yData].sort((a, b) => a.date.localeCompare(b.date));
+  const sortedUnrate = [...unrateData].sort((a, b) => a.date.localeCompare(b.date));
+  const sortedIsmPmi = [...ismPmiData].sort((a, b) => a.date.localeCompare(b.date));
+  const sortedHyOas = [...hyOasData].sort((a, b) => a.date.localeCompare(b.date));
 
-  const dates = Array.from(dateSet).sort();
+  // Generate 6 month-end reference dates (last day of each month)
+  const monthlyDates: string[] = [];
+  const now = new Date();
 
-  // Calculate score for each date
-  return dates.map(date => {
-    const t10y2y = t10y2yData.find(d => d.date === date)?.value ?? null;
-    const unrate = unrateData.find(d => d.date === date)?.value ?? null;
-    const ismPmi = ismPmiData.find(d => d.date === date)?.value ?? null;
-    const hyOas = hyOasData.find(d => d.date === date)?.value ?? null;
+  for (let i = 0; i < 6; i++) {
+    const year = now.getFullYear();
+    const month = now.getMonth() - i;
+
+    // Get last day of the month
+    const lastDay = new Date(year, month + 1, 0);
+    monthlyDates.push(lastDay.toISOString().split('T')[0]);
+  }
+
+  monthlyDates.reverse(); // Oldest to newest
+
+  // Forward fill state: pointer + last observed value
+  const state = {
+    t10y2y: { index: 0, lastValue: null as number | null },
+    unrate: { index: 0, lastValue: null as number | null },
+    ismPmi: { index: 0, lastValue: null as number | null },
+    hyOas: { index: 0, lastValue: null as number | null }
+  };
+
+  // Helper: Forward fill to target date (date ≤ D의 마지막 값)
+  function forwardFill(
+    series: DataPoint[],
+    targetDate: string,
+    state: { index: number; lastValue: number | null }
+  ): number | null {
+    // Advance pointer while date ≤ targetDate
+    while (state.index < series.length && series[state.index].date <= targetDate) {
+      const value = series[state.index].value;
+      if (value !== null) {
+        state.lastValue = value;
+      }
+      state.index++;
+    }
+    return state.lastValue;
+  }
+
+  // Calculate score for each monthly date
+  return monthlyDates.map(date => {
+    const t10y2y = forwardFill(sortedT10y2y, date, state.t10y2y);
+    const unrate = forwardFill(sortedUnrate, date, state.unrate);
+    const ismPmi = forwardFill(sortedIsmPmi, date, state.ismPmi);
+    const hyOas = forwardFill(sortedHyOas, date, state.hyOas);
+
+    // CRITICAL: If ANY indicator is null, return null score (NOT 0)
+    if (t10y2y === null || unrate === null || ismPmi === null || hyOas === null) {
+      return { date, score: null };
+    }
 
     const score = calculateCompositeScore(t10y2y, hyOas, ismPmi, unrate);
-
     return { date, score };
-  }).filter(item => !isNaN(item.score));
+  });
 }

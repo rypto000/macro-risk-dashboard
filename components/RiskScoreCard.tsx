@@ -11,7 +11,7 @@ import {
 interface RiskScoreCardProps {
   currentScore: number;
   currentRegime: RegimeType;
-  historicalScores: { date: string; score: number }[];
+  historicalScores: { date: string; score: number | null }[];
   lastRegimeChange?: string;
 }
 
@@ -59,6 +59,7 @@ export default function RiskScoreCard({
           data: scores,
           smooth: true,
           symbol: 'none',
+          connectNulls: false, // Don't connect across null gaps
           lineStyle: {
             color: regimeInfo.color === 'green' ? '#10b981' :
                    regimeInfo.color === 'yellow' ? '#f59e0b' :
@@ -102,6 +103,10 @@ export default function RiskScoreCard({
             year: 'numeric',
             month: 'long'
           });
+          // Handle null values
+          if (param.value === null || param.value === undefined) {
+            return `${dateStr}<br/>Risk Score: N/A`;
+          }
           return `${dateStr}<br/>Risk Score: ${param.value.toFixed(3)}`;
         }
       }
