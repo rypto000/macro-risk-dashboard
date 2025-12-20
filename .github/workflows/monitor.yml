@@ -1,0 +1,46 @@
+ name: Macro Risk Monitor                                                                                                               
+                                                                                                                                         
+  on:                                                                                                                                    
+    schedule:                                                                                                                            
+      - cron: '0 */6 * * *'                                                                                                              
+      - cron: '0 11 * * 0'                                                                                                               
+    workflow_dispatch:                                                                                                                   
+                                                                                                                                         
+  jobs:                                                                                                                                  
+    monitor:                                                                                                                             
+      runs-on: ubuntu-latest                                                                                                             
+      if: github.event.schedule != '0 11 * * 0'                                                                                          
+      steps:                                                                                                                             
+        - uses: actions/checkout@v4                                                                                                      
+        - uses: actions/setup-python@v5                                                                                                  
+          with:                                                                                                                          
+            python-version: '3.11'                                                                                                       
+        - run: pip install requests                                                                                                      
+        - uses: actions/cache/restore@v4                                                                                                 
+          with:                                                                                                                          
+            path: scripts/state.json                                                                                                     
+            key: monitor-state-${{ github.run_id }}                                                                                      
+            restore-keys: monitor-state-                                                                                                 
+        - env:                                                                                                                           
+            TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}                                                                        
+            TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}                                                                            
+          run: cd scripts && python monitor.py                                                                                           
+        - uses: actions/cache/save@v4                                                                                                    
+          if: always()                                                                                                                   
+          with:                                                                                                                          
+            path: scripts/state.json                                                                                                     
+            key: monitor-state-${{ github.run_id }}                                                                                      
+                                                                                                                                         
+    weekly-summary:                                                                                                                      
+      runs-on: ubuntu-latest                                                                                                             
+      if: github.event.schedule == '0 11 * * 0'                                                                                          
+      steps:                                                                                                                             
+        - uses: actions/checkout@v4                                                                                                      
+        - uses: actions/setup-python@v5                                                                                                  
+          with:                                                                                                                          
+            python-version: '3.11'                                                                                                       
+        - run: pip install requests                                                                                                      
+        - env:                                                                                                                           
+            TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}                                                                        
+            TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}                                                                            
+          run: cd scripts && python weekly_summary.py     
