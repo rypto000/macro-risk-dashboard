@@ -5,6 +5,7 @@ import IndicatorChart from '../components/IndicatorChart';
 import SummaryTable from '../components/SummaryTable';
 import CombinedChart from '../components/CombinedChart';
 import RiskScoreCard from '../components/RiskScoreCard';
+import FearGreedCards from '../components/FearGreedCards';
 import {
   calculateCompositeScore,
   calculateHistoricalScores,
@@ -282,6 +283,11 @@ export default function Page() {
           ismPmi={data.ismPmi}
           hyOas={data.hyOas}
         />
+      </div>
+
+      {/* Fear & Greed Indices */}
+      <div className="mb-8">
+        <FearGreedCards />
       </div>
 
       {/* Footer */}
