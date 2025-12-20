@@ -35,6 +35,17 @@ export default function RiskScoreCard({
     const scores = last60Months.map(d => d.score);
 
     return {
+      visualMap: {
+        show: false,
+        type: 'piecewise',
+        dimension: 1, // Map based on y-axis value (score)
+        pieces: [
+          { min: 0, max: 0.30, color: '#ef4444' },      // Red (Risk-On / Extreme Fear)
+          { min: 0.30, max: 0.55, color: '#f59e0b' },   // Yellow (Neutral)
+          { min: 0.55, max: 0.75, color: '#f97316' },   // Orange (Risk-Off / Fear)
+          { min: 0.75, max: 1.0, color: '#10b981' }     // Green (Crisis / Greed)
+        ]
+      },
       grid: {
         left: '8%',
         right: '4%',
@@ -97,11 +108,7 @@ export default function RiskScoreCard({
           symbolSize: 4,
           connectNulls: false,
           lineStyle: {
-            color: '#8b5cf6',
-            width: 2
-          },
-          itemStyle: {
-            color: '#8b5cf6'
+            width: 3
           },
           areaStyle: {
             color: {
@@ -113,11 +120,11 @@ export default function RiskScoreCard({
               colorStops: [
                 {
                   offset: 0,
-                  color: 'rgba(139, 92, 246, 0.3)'
+                  color: 'rgba(148, 163, 184, 0.2)'
                 },
                 {
                   offset: 1,
-                  color: 'rgba(139, 92, 246, 0.05)'
+                  color: 'rgba(148, 163, 184, 0.02)'
                 }
               ]
             }
