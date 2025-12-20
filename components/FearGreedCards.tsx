@@ -111,6 +111,11 @@ function FearGreedGauge({ title, data, icon }: { title: string; data: FearGreedI
       <h3 className="text-lg font-bold mb-2 text-white">
         {icon} {title}
       </h3>
+      {title.includes('Crypto') && (
+        <p className="text-xs text-gray-500 mb-2">
+          Source: Alternative.me (업데이트: 1일 1회)
+        </p>
+      )}
 
       <ReactECharts
         option={gaugeOption}
@@ -203,6 +208,8 @@ export default function FearGreedCards() {
 
       <p className="mt-4 text-xs text-gray-500">
         * Fear & Greed Index는 시장 심리 지표입니다. Extreme Fear = 매수 기회, Extreme Greed = 과열 경고
+        <br />
+        * Crypto 지표는 Alternative.me 기준입니다. CoinMarketCap과 계산 방식이 달라 수치가 다를 수 있습니다.
       </p>
     </div>
   );

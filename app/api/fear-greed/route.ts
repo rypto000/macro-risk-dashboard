@@ -19,7 +19,7 @@ interface FearGreedData {
 async function fetchCryptoFearGreed() {
   try {
     const response = await fetch('https://api.alternative.me/fng/?limit=1', {
-      next: { revalidate: 86400 } // Cache for 24 hours
+      next: { revalidate: 300 } // Cache for 5 minutes
     });
 
     if (!response.ok) {
