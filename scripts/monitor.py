@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 # Configuration
-DASHBOARD_URL = os.getenv('DASHBOARD_URL', 'https://macro-risk-dashboard.vercel.app')
+DASHBOARD_URL = os.getenv('DASHBOARD_URL', 'https://macro-risk-dashboard-psi.vercel.app')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 STATE_FILE = 'state.json'
