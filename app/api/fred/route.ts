@@ -3,6 +3,9 @@ import { ismPmiHistorical } from '../../../lib/ism-pmi-data';
 import * as fs from 'fs';
 import * as path from 'path';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const FRED_API_KEY = process.env.FRED_API_KEY || '';
 const FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations';
 
