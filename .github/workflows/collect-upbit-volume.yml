@@ -1,0 +1,47 @@
+name: Collect Upbit Volume Data
+
+on:
+  schedule:
+    # 매일 UTC 15:00 (한국시간 00:00)에 실행
+    - cron: '0 15 * * *'
+  workflow_dispatch: # 수동 실행도 가능
+
+jobs:
+  collect-volume:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Python dependencies
+        run: |
+          pip install requests
+
+      - name: Collect Upbit volume data
+        run: |
+          python3 scripts/collect_upbit_volume.py
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # 변경사항이 있으면 커밋
+          if [ -n "$(git status --porcelain)" ]; then
+            git add data/upbit_volume_history.json
+            git commit -m "🤖 Auto-update Upbit volume data - $(date +'%Y-%m-%d')"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Upbit volume collection failed!"
