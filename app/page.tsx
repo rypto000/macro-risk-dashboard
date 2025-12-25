@@ -277,11 +277,6 @@ export default function Page() {
         <SummaryTable indicators={indicators} />
       </div>
 
-      {/* Chart Marker Manager */}
-      <div className="mb-8">
-        <MarkerManager onMarkersChange={handleMarkersChange} />
-      </div>
-
       {/* Upbit Volume Chart (암호화폐 시장 온도) */}
       {!upbitLoading && upbitData.length > 0 && (
         <div className="mb-8">
@@ -293,6 +288,11 @@ export default function Page() {
           />
         </div>
       )}
+
+      {/* Chart Marker Manager */}
+      <div className="mb-8">
+        <MarkerManager onMarkersChange={handleMarkersChange} />
+      </div>
 
       {/* Individual Charts */}
       <div className="space-y-8 mb-8">

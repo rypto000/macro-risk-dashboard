@@ -18,6 +18,7 @@ export default function MarkerManager({ onMarkersChange }: MarkerManagerProps) {
   const [markers, setMarkers] = useState<ChartMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); // 전체 섹션 접기/펼치기
 
   // 새 마커 입력 상태
   const [newDate, setNewDate] = useState('');
@@ -126,16 +127,32 @@ export default function MarkerManager({ onMarkersChange }: MarkerManagerProps) {
   }
 
   return (
-    <div className="bg-slate-800 rounded-lg p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold text-white">📌 차트 이벤트 마커 관리</h3>
+    <div className="bg-slate-800 rounded-lg shadow-lg">
+      {/* 헤더 - 항상 보임 */}
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-700/50 transition-colors rounded-lg"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xl">{isExpanded ? '▼' : '▶'}</span>
+          <h3 className="text-lg font-bold text-white">📌 차트 이벤트 마커 관리</h3>
+          <span className="text-sm text-slate-400">({markers.length}개)</span>
+        </div>
         <button
-          onClick={() => setIsFormOpen(!isFormOpen)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsFormOpen(!isFormOpen);
+            if (!isExpanded) setIsExpanded(true);
+          }}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
         >
           {isFormOpen ? '✕ 닫기' : '+ 마커 추가'}
         </button>
       </div>
+
+      {/* 접을 수 있는 콘텐츠 */}
+      {isExpanded && (
+        <div className="px-6 pb-6">\
 
       {/* 추가 폼 */}
       {isFormOpen && (
@@ -255,7 +272,8 @@ export default function MarkerManager({ onMarkersChange }: MarkerManagerProps) {
             </div>
           ))
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
