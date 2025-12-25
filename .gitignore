@@ -39,5 +39,6 @@ next-env.d.ts
 
 # Google credentials
 *.json
-# But allow data backup
+# But allow data files
 !data/backup.json
+!data/upbit_volume_history.json
