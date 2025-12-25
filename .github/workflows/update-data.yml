@@ -1,0 +1,54 @@
+name: Update Economic Data
+
+on:
+  schedule:
+    # 매일 UTC 00:00 (한국시간 오전 9시)에 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 수동 실행도 가능
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch and update data
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          # API 서버 시작 (백그라운드)
+          npm run build
+          npm start &
+
+          # 서버 시작 대기
+          sleep 10
+
+          # 데이터 가져오기
+          curl -f http://localhost:3000/api/fred -o data/backup.json
+
+          # 서버 종료
+          pkill -f "next start"
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # 변경사항이 있으면 커밋
+          if [ -n "$(git status --porcelain)" ]; then
+            git add data/backup.json
+            git commit -m "🤖 Auto-update economic data - $(date +'%Y-%m-%d %H:%M:%S')"
+            git push
+          else
+            echo "No changes to commit"
+          fi
