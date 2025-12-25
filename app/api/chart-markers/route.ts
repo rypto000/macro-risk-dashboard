@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { Redis } from '@upstash/redis';
 
 export interface ChartMarker {
   id: string;
@@ -10,26 +9,23 @@ export interface ChartMarker {
   description?: string;
 }
 
-const MARKERS_FILE = path.join(process.cwd(), 'data', 'chart_markers.json');
+// Upstash Redis 클라이언트
+// 환경 변수는 Vercel이 자동으로 설정합니다
+const redis = Redis.fromEnv();
+
+const REDIS_KEY = 'chart-markers';
 
 // GET: 모든 마커 조회
 export async function GET() {
   try {
-    const fileContent = await fs.readFile(MARKERS_FILE, 'utf-8');
-    const markers: ChartMarker[] = JSON.parse(fileContent);
+    const markers = await redis.get<ChartMarker[]>(REDIS_KEY);
 
     return NextResponse.json({
       success: true,
-      markers: markers.sort((a, b) => a.date.localeCompare(b.date))
+      markers: markers ? markers.sort((a, b) => a.date.localeCompare(b.date)) : []
     });
   } catch (error: any) {
     console.error('마커 조회 실패:', error);
-
-    if (error.code === 'ENOENT') {
-      // 파일이 없으면 빈 배열 반환
-      return NextResponse.json({ success: true, markers: [] });
-    }
-
     return NextResponse.json(
       { success: false, error: '마커를 불러올 수 없습니다.' },
       { status: 500 }
@@ -60,12 +56,9 @@ export async function POST(request: Request) {
     }
 
     // 기존 마커 읽기
-    let markers: ChartMarker[] = [];
-    try {
-      const fileContent = await fs.readFile(MARKERS_FILE, 'utf-8');
-      markers = JSON.parse(fileContent);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') throw error;
+    let markers = await redis.get<ChartMarker[]>(REDIS_KEY);
+    if (!markers) {
+      markers = [];
     }
 
     // 새 ID 생성
@@ -81,8 +74,8 @@ export async function POST(request: Request) {
 
     markers.push(markerWithId);
 
-    // 저장
-    await fs.writeFile(MARKERS_FILE, JSON.stringify(markers, null, 2), 'utf-8');
+    // Redis에 저장
+    await redis.set(REDIS_KEY, markers);
 
     return NextResponse.json({
       success: true,
@@ -112,8 +105,14 @@ export async function DELETE(request: Request) {
     }
 
     // 기존 마커 읽기
-    const fileContent = await fs.readFile(MARKERS_FILE, 'utf-8');
-    const markers: ChartMarker[] = JSON.parse(fileContent);
+    const markers = await redis.get<ChartMarker[]>(REDIS_KEY);
+
+    if (!markers || markers.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '마커가 없습니다.' },
+        { status: 404 }
+      );
+    }
 
     // 해당 ID 마커 제거
     const filteredMarkers = markers.filter(m => m.id !== id);
@@ -125,8 +124,8 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // 저장
-    await fs.writeFile(MARKERS_FILE, JSON.stringify(filteredMarkers, null, 2), 'utf-8');
+    // Redis에 저장
+    await redis.set(REDIS_KEY, filteredMarkers);
 
     return NextResponse.json({
       success: true,
