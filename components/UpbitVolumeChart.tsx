@@ -12,6 +12,14 @@ interface VolumeDataPoint {
   ma90: number;
 }
 
+interface ChartMarker {
+  id: string;
+  date: string;
+  label: string;
+  color: string;
+  description?: string;
+}
+
 interface UpbitVolumeChartProps {
   data: VolumeDataPoint[];
   latest?: {
@@ -35,9 +43,10 @@ interface UpbitVolumeChartProps {
       p95: number;
     };
   };
+  markers?: ChartMarker[];
 }
 
-export default function UpbitVolumeChart({ data, latest, statistics }: UpbitVolumeChartProps) {
+export default function UpbitVolumeChart({ data, latest, statistics, markers = [] }: UpbitVolumeChartProps) {
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
 
   // 차트 옵션 생성
@@ -62,31 +71,18 @@ export default function UpbitVolumeChart({ data, latest, statistics }: UpbitVolu
       return '#6b7280'; // 회색 (정상)
     });
 
-    // 21년 불장, 25년 불장 마킹
-    const markLines = [
-      {
-        name: '21년 불장',
-        xAxis: '2021-05-01',
-        lineStyle: { color: '#fbbf24', type: 'dashed' as const, width: 2 },
-        label: {
-          show: true,
-          position: 'insideEndTop' as const,
-          formatter: '21년 불장',
-          color: '#fbbf24'
-        }
-      },
-      {
-        name: '25년 불장',
-        xAxis: '2025-01-01',
-        lineStyle: { color: '#fbbf24', type: 'dashed' as const, width: 2 },
-        label: {
-          show: true,
-          position: 'insideEndTop' as const,
-          formatter: '25년 불장',
-          color: '#fbbf24'
-        }
+    // 동적 마커 라인 생성
+    const markLines = markers.map(marker => ({
+      name: marker.label,
+      xAxis: marker.date,
+      lineStyle: { color: marker.color, type: 'dashed' as const, width: 2 },
+      label: {
+        show: true,
+        position: 'insideEndTop' as const,
+        formatter: marker.label,
+        color: marker.color
       }
-    ];
+    }));
 
     return {
       tooltip: {
@@ -247,7 +243,7 @@ export default function UpbitVolumeChart({ data, latest, statistics }: UpbitVolu
         }
       ]
     };
-  }, [data]);
+  }, [data, markers]);
 
   // 현재 상태 표시
   const getStatusBadge = () => {

@@ -7,6 +7,7 @@ import CombinedChart from '../components/CombinedChart';
 import RiskScoreCard from '../components/RiskScoreCard';
 import FearGreedCards from '../components/FearGreedCards';
 import UpbitVolumeChart from '../components/UpbitVolumeChart';
+import MarkerManager from '../components/MarkerManager';
 import {
   calculateCompositeScore,
   calculateHistoricalScores,
@@ -43,6 +44,14 @@ interface UpbitLatest {
   status: 'normal' | 'overheated' | 'cold';
 }
 
+interface ChartMarker {
+  id: string;
+  date: string;
+  label: string;
+  color: string;
+  description?: string;
+}
+
 export default function Page() {
   const [data, setData] = useState<FredData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +62,10 @@ export default function Page() {
   const [upbitLatest, setUpbitLatest] = useState<UpbitLatest | null>(null);
   const [upbitStatistics, setUpbitStatistics] = useState<any>(null);
   const [upbitLoading, setUpbitLoading] = useState(true);
+
+  // Chart markers
+  const [markers, setMarkers] = useState<ChartMarker[]>([]);
+  const [markersKey, setMarkersKey] = useState(0); // For forcing refresh
 
   useEffect(() => {
     fetch('/api/fred')
@@ -88,6 +101,25 @@ export default function Page() {
         setUpbitLoading(false);
       });
   }, []);
+
+  // Fetch chart markers
+  useEffect(() => {
+    fetch('/api/chart-markers')
+      .then((res) => res.json())
+      .then((response) => {
+        if (response.success) {
+          setMarkers(response.markers || []);
+        }
+      })
+      .catch((err) => {
+        console.error('마커 로딩 실패:', err);
+      });
+  }, [markersKey]);
+
+  // Refresh markers
+  const handleMarkersChange = () => {
+    setMarkersKey(prev => prev + 1);
+  };
 
   // Calculate risk scores (must be before conditional returns)
   const riskScoreData = useMemo(() => {
@@ -245,6 +277,11 @@ export default function Page() {
         <SummaryTable indicators={indicators} />
       </div>
 
+      {/* Chart Marker Manager */}
+      <div className="mb-8">
+        <MarkerManager onMarkersChange={handleMarkersChange} />
+      </div>
+
       {/* Upbit Volume Chart (암호화폐 시장 온도) */}
       {!upbitLoading && upbitData.length > 0 && (
         <div className="mb-8">
@@ -252,6 +289,7 @@ export default function Page() {
             data={upbitData}
             latest={upbitLatest || undefined}
             statistics={upbitStatistics || undefined}
+            markers={markers}
           />
         </div>
       )}

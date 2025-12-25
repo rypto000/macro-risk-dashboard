@@ -42,3 +42,4 @@ next-env.d.ts
 # But allow data files
 !data/backup.json
 !data/upbit_volume_history.json
+!data/chart_markers.json
