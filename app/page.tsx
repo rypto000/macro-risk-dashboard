@@ -6,6 +6,7 @@ import SummaryTable from '../components/SummaryTable';
 import CombinedChart from '../components/CombinedChart';
 import RiskScoreCard from '../components/RiskScoreCard';
 import FearGreedCards from '../components/FearGreedCards';
+import UpbitVolumeChart from '../components/UpbitVolumeChart';
 import {
   calculateCompositeScore,
   calculateHistoricalScores,
@@ -26,10 +27,32 @@ interface FredData {
   lastUpdated: string;
 }
 
+interface UpbitVolumeData {
+  date: string;
+  volume: number;
+  volumeTrillion: number;
+  ma7: number;
+  ma30: number;
+  ma90: number;
+}
+
+interface UpbitLatest {
+  date: string;
+  volumeTrillion: number;
+  ma90: number;
+  status: 'normal' | 'overheated' | 'cold';
+}
+
 export default function Page() {
   const [data, setData] = useState<FredData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Upbit volume data
+  const [upbitData, setUpbitData] = useState<UpbitVolumeData[]>([]);
+  const [upbitLatest, setUpbitLatest] = useState<UpbitLatest | null>(null);
+  const [upbitStatistics, setUpbitStatistics] = useState<any>(null);
+  const [upbitLoading, setUpbitLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/fred')
@@ -45,6 +68,24 @@ export default function Page() {
       .catch((err) => {
         setError(err.message);
         setLoading(false);
+      });
+  }, []);
+
+  // Fetch Upbit volume data
+  useEffect(() => {
+    fetch('/api/upbit-volume')
+      .then((res) => res.json())
+      .then((response) => {
+        if (response.success) {
+          setUpbitData(response.data || []);
+          setUpbitLatest(response.latest || null);
+          setUpbitStatistics(response.statistics || null);
+        }
+        setUpbitLoading(false);
+      })
+      .catch((err) => {
+        console.error('업비트 데이터 로딩 실패:', err);
+        setUpbitLoading(false);
       });
   }, []);
 
@@ -203,6 +244,17 @@ export default function Page() {
       <div className="mb-8">
         <SummaryTable indicators={indicators} />
       </div>
+
+      {/* Upbit Volume Chart (암호화폐 시장 온도) */}
+      {!upbitLoading && upbitData.length > 0 && (
+        <div className="mb-8">
+          <UpbitVolumeChart
+            data={upbitData}
+            latest={upbitLatest || undefined}
+            statistics={upbitStatistics || undefined}
+          />
+        </div>
+      )}
 
       {/* Individual Charts */}
       <div className="space-y-8 mb-8">
