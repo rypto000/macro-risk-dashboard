@@ -152,7 +152,7 @@ export default function MarkerManager({ onMarkersChange }: MarkerManagerProps) {
 
       {/* 접을 수 있는 콘텐츠 */}
       {isExpanded && (
-        <div className="px-6 pb-6">\
+        <div className="px-6 pb-6">
 
       {/* 추가 폼 */}
       {isFormOpen && (
