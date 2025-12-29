@@ -1,19 +1,12 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import IndicatorChart from '../components/IndicatorChart';
 import SummaryTable from '../components/SummaryTable';
 import CombinedChart from '../components/CombinedChart';
-import RiskScoreCard from '../components/RiskScoreCard';
 import FearGreedCards from '../components/FearGreedCards';
 import UpbitVolumeChart from '../components/UpbitVolumeChart';
 import MarkerManager from '../components/MarkerManager';
-import {
-  calculateCompositeScore,
-  calculateHistoricalScores,
-  detectRegime,
-  RegimeType
-} from '../lib/risk-score';
 
 interface DataPoint {
   date: string;
@@ -121,60 +114,6 @@ export default function Page() {
     setMarkersKey(prev => prev + 1);
   };
 
-  // Calculate risk scores (must be before conditional returns)
-  const riskScoreData = useMemo(() => {
-    if (!data) return null;
-
-    const latestT10Y2Y = data.t10y2y[data.t10y2y.length - 1]?.value;
-    const latestUnrate = data.unrate[data.unrate.length - 1]?.value;
-    const latestHyOas = data.hyOas[data.hyOas.length - 1]?.value;
-    const latestIsmPmi = data.ismPmi[data.ismPmi.length - 1]?.value;
-
-    const currentScore = calculateCompositeScore(
-      latestT10Y2Y,
-      latestHyOas,
-      latestIsmPmi,
-      latestUnrate
-    );
-
-    const historicalScores = calculateHistoricalScores(
-      data.t10y2y,
-      data.unrate,
-      data.ismPmi,
-      data.hyOas
-    );
-
-    const currentRegime = detectRegime(currentScore, null);
-
-    // Find last regime change (skip null scores)
-    let lastRegimeChange: string | undefined = undefined;
-    if (historicalScores.length >= 2) {
-      const recentScores = historicalScores
-        .slice(-60) // Last 5 years
-        .filter(s => s.score !== null) as { date: string; score: number }[];
-
-      for (let i = recentScores.length - 1; i > 0; i--) {
-        const prevRegime = detectRegime(recentScores[i - 1].score, null);
-        const currRegime = detectRegime(recentScores[i].score, prevRegime);
-        if (prevRegime !== currRegime) {
-          lastRegimeChange = recentScores[i].date;
-          break;
-        }
-      }
-    }
-
-    return {
-      latestT10Y2Y,
-      latestUnrate,
-      latestHyOas,
-      latestIsmPmi,
-      currentScore,
-      historicalScores,
-      currentRegime,
-      lastRegimeChange
-    };
-  }, [data]);
-
   if (loading) {
     return (
       <main className="min-h-screen p-8">
@@ -203,20 +142,15 @@ export default function Page() {
     );
   }
 
-  if (!data || !riskScoreData) {
+  if (!data) {
     return null;
   }
 
-  const {
-    latestT10Y2Y,
-    latestUnrate,
-    latestHyOas,
-    latestIsmPmi,
-    currentScore,
-    historicalScores,
-    currentRegime,
-    lastRegimeChange
-  } = riskScoreData;
+  // Get latest indicator values
+  const latestT10Y2Y = data.t10y2y[data.t10y2y.length - 1]?.value;
+  const latestUnrate = data.unrate[data.unrate.length - 1]?.value;
+  const latestHyOas = data.hyOas[data.hyOas.length - 1]?.value;
+  const latestIsmPmi = data.ismPmi[data.ismPmi.length - 1]?.value;
 
   const indicators = [
     {
@@ -256,16 +190,6 @@ export default function Page() {
       <p className="mb-6 text-gray-400">
         마지막 업데이트: {new Date(data.lastUpdated).toLocaleString('ko-KR')}
       </p>
-
-      {/* Risk Score Card */}
-      <div className="mb-8">
-        <RiskScoreCard
-          currentScore={currentScore}
-          currentRegime={currentRegime}
-          historicalScores={historicalScores}
-          lastRegimeChange={lastRegimeChange}
-        />
-      </div>
 
       {/* Fear & Greed Indices */}
       <div className="mb-8">

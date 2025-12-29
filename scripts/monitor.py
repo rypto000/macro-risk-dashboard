@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Macro Risk Dashboard - Smart Monitoring System
-Detects regime changes, threshold crossings, and divergence alerts
+Detects Fear & Greed regime changes and indicator threshold crossings
 """
 
 import os
@@ -15,14 +15,6 @@ DASHBOARD_URL = os.getenv('DASHBOARD_URL', 'https://macro-risk-dashboard-psi.ver
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 STATE_FILE = 'state.json'
-
-# Regime thresholds (matching the dashboard)
-REGIME_THRESHOLDS = {
-    'riskOn': {'min': 0.00, 'max': 0.30, 'label': 'Risk-On', 'emoji': '🟢'},
-    'neutral': {'min': 0.30, 'max': 0.55, 'label': 'Neutral', 'emoji': '🟡'},
-    'riskOff': {'min': 0.55, 'max': 0.75, 'label': 'Risk-Off', 'emoji': '🟠'},
-    'crisis': {'min': 0.75, 'max': 1.00, 'label': 'Crisis', 'emoji': '🔴'}
-}
 
 # Indicator thresholds for Tier 2 alerts
 INDICATOR_THRESHOLDS = {
@@ -63,18 +55,6 @@ def get_fg_emoji(label: str) -> str:
     return FG_LABEL_EMOJI.get(label.lower(), '❓')
 
 
-def get_regime_from_score(score: float) -> str:
-    """Determine regime from risk score"""
-    if score < 0.30:
-        return 'riskOn'
-    elif score < 0.55:
-        return 'neutral'
-    elif score < 0.75:
-        return 'riskOff'
-    else:
-        return 'crisis'
-
-
 def load_state() -> Dict[str, Any]:
     """Load previous state from file"""
     if os.path.exists(STATE_FILE):
@@ -110,61 +90,6 @@ def fetch_dashboard_data() -> Optional[Dict[str, Any]]:
         return None
 
 
-def calculate_risk_score(fred_data: Dict) -> Optional[float]:
-    """Calculate composite risk score from FRED data"""
-    try:
-        # Get latest values
-        t10y2y = fred_data['t10y2y'][-1]['value']
-        unrate = fred_data['unrate'][-1]['value']
-        hyOas = fred_data['hyOas'][-1]['value']
-        ismPmi = fred_data['ismPmi'][-1]['value']
-
-        if any(v is None for v in [t10y2y, unrate, hyOas, ismPmi]):
-            return None
-
-        # Scoring functions (matching lib/risk-score.ts)
-        def score_t10y2y(v):
-            if v >= 0: return 0
-            if v <= -1.0: return 1.0
-            return abs(v) / 1.0
-
-        def score_hyoas(v):
-            if v <= 4.0: return 0
-            if v >= 8.0: return 1.0
-            return (v - 4.0) / 4.0
-
-        def score_ismpmi(v):
-            if v >= 50: return 0
-            if v <= 43: return 1.0
-            return (50 - v) / 7.0
-
-        def score_unrate(v):
-            if v <= 4.0: return 0
-            if v >= 7.0: return 1.0
-            return (v - 4.0) / 3.0
-
-        # Weights
-        weights = {
-            't10y2y': 0.35,
-            'hyOas': 0.30,
-            'ismPmi': 0.20,
-            'unrate': 0.15
-        }
-
-        # Calculate composite
-        score = (
-            score_t10y2y(t10y2y) * weights['t10y2y'] +
-            score_hyoas(hyOas) * weights['hyOas'] +
-            score_ismpmi(ismPmi) * weights['ismPmi'] +
-            score_unrate(unrate) * weights['unrate']
-        )
-
-        return max(0, min(1, score))
-    except Exception as e:
-        print(f"Error calculating risk score: {e}")
-        return None
-
-
 def send_telegram_message(message: str):
     """Send message via Telegram"""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -186,25 +111,9 @@ def send_telegram_message(message: str):
         print(f"Error sending Telegram message: {e}")
 
 
-def check_regime_changes(current_score: float, prev_score: Optional[float],
-                        fg_data: Dict, prev_state: Dict) -> Optional[str]:
-    """Check for all regime changes (Macro Risk + Fear & Greed) and combine if multiple"""
+def check_regime_changes(fg_data: Dict, prev_state: Dict) -> Optional[str]:
+    """Check for Fear & Greed regime changes"""
     changes = []
-
-    # Check Macro Risk regime change
-    if prev_score is not None:
-        current_regime = get_regime_from_score(current_score)
-        prev_regime = get_regime_from_score(prev_score)
-
-        if current_regime != prev_regime:
-            curr_info = REGIME_THRESHOLDS[current_regime]
-            prev_info = REGIME_THRESHOLDS[prev_regime]
-            changes.append({
-                'type': 'macro',
-                'prev': prev_info,
-                'curr': curr_info,
-                'score': current_score
-            })
 
     # Check Crypto Fear & Greed regime change (using original API label)
     crypto_fg = fg_data.get('crypto')
@@ -244,43 +153,7 @@ def check_regime_changes(current_score: float, prev_score: Optional[float],
     if len(changes) == 1:
         # Single regime change
         change = changes[0]
-        if change['type'] == 'macro':
-            message = f"""🚨 <b>Macro Risk 레짐 변경</b>
-
-{change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
-
-현재 Risk Score: {change['score']:.3f}
-변경 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-
-<b>권장 액션:</b>
-"""
-            actions = {
-                'riskOn': [
-                    '✅ 정상 투자 전략 유지',
-                    '✅ DCA 지속 가능',
-                    '✅ 성장주 비중 유지'
-                ],
-                'neutral': [
-                    '⚠️ DCA 중단 고려',
-                    '⚠️ 현금 비중 점검',
-                    '⚠️ 방어주 편입 검토'
-                ],
-                'riskOff': [
-                    '🔴 현금 비중 30% 이상 상향 검토',
-                    '🔴 방어 자산(채권, 금) 20% 편입 고려',
-                    '🔴 레버리지 포지션 축소'
-                ],
-                'crisis': [
-                    '🚨 풀헤지 진입 검토 권고',
-                    '🚨 현금 비중 50% 이상 고려',
-                    '🚨 신규 진입 중단'
-                ]
-            }
-            current_regime = get_regime_from_score(change['score'])
-            for action in actions[current_regime]:
-                message += f"\n{action}"
-
-        elif change['type'] == 'crypto_fg':
+        if change['type'] == 'crypto_fg':
             message = f"""🪙 <b>Crypto Fear & Greed 변경</b>
 
 {change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
@@ -302,19 +175,13 @@ Source: CNN"""
 
     else:
         # Multiple regime changes - combined message
-        message = f"""🚨 <b>복합 레짐 변경</b>
+        message = f"""🚨 <b>복합 F&G 변경</b>
 
 변경 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 """
         for change in changes:
-            if change['type'] == 'macro':
-                message += f"""<b>📊 Macro Risk</b>
-{change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
-Risk Score: {change['score']:.3f}
-
-"""
-            elif change['type'] == 'crypto_fg':
+            if change['type'] == 'crypto_fg':
                 message += f"""<b>🪙 Crypto F&G</b>
 {change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
 값: {change['value']}
@@ -328,36 +195,6 @@ Risk Score: {change['score']:.3f}
 (Source: CNN)
 
 """
-
-        # Add action recommendations if macro changed
-        macro_change = next((c for c in changes if c['type'] == 'macro'), None)
-        if macro_change:
-            message += "<b>권장 액션:</b>\n"
-            actions = {
-                'riskOn': [
-                    '✅ 정상 투자 전략 유지',
-                    '✅ DCA 지속 가능',
-                    '✅ 성장주 비중 유지'
-                ],
-                'neutral': [
-                    '⚠️ DCA 중단 고려',
-                    '⚠️ 현금 비중 점검',
-                    '⚠️ 방어주 편입 검토'
-                ],
-                'riskOff': [
-                    '🔴 현금 비중 30% 이상 상향 검토',
-                    '🔴 방어 자산(채권, 금) 20% 편입 고려',
-                    '🔴 레버리지 포지션 축소'
-                ],
-                'crisis': [
-                    '🚨 풀헤지 진입 검토 권고',
-                    '🚨 현금 비중 50% 이상 고려',
-                    '🚨 신규 진입 중단'
-                ]
-            }
-            current_regime = get_regime_from_score(macro_change['score'])
-            for action in actions[current_regime]:
-                message += f"\n{action}"
 
     return message
 
@@ -418,39 +255,6 @@ def check_tier2_alerts(fred_data: Dict, prev_state: Dict) -> list:
         return []
 
 
-def check_divergence(risk_score: float, fg_data: Dict) -> Optional[str]:
-    """Check for divergence between Macro Risk and Fear & Greed"""
-    try:
-        crypto_fg = fg_data.get('crypto')
-        if not crypto_fg:
-            return None
-
-        fg_value = crypto_fg['value']
-
-        # Divergence: Macro says Risk-Off but F&G says Extreme Greed
-        if risk_score >= 0.55 and fg_value >= 75:
-            return f"""⚠️ <b>신호 불일치 감지</b>
-
-Macro Risk: Risk-Off ({risk_score:.2f})
-Crypto F&G: Extreme Greed ({fg_value})
-
-→ 거시경제는 위험한데 시장은 과열
-→ 조정 가능성 높음"""
-
-        # Divergence: Macro says Risk-On but F&G says Extreme Fear
-        elif risk_score <= 0.30 and fg_value <= 25:
-            return f"""💡 <b>매수 기회 신호</b>
-
-Macro Risk: Risk-On ({risk_score:.2f})
-Crypto F&G: Extreme Fear ({fg_value})
-
-→ 거시경제는 안정적인데 시장은 공포
-→ 매수 기회 가능성"""
-
-        return None
-    except Exception as e:
-        print(f"Error checking divergence: {e}")
-        return None
 
 
 def generate_weekly_summary(data: Dict) -> str:
@@ -458,10 +262,6 @@ def generate_weekly_summary(data: Dict) -> str:
     try:
         fred_data = data['fred']
         fg_data = data['fearGreed']
-
-        risk_score = calculate_risk_score(fred_data)
-        regime = get_regime_from_score(risk_score) if risk_score else 'unknown'
-        regime_info = REGIME_THRESHOLDS.get(regime, {'label': 'Unknown', 'emoji': '❓'})
 
         # Get indicator values
         t10y2y = fred_data['t10y2y'][-1]['value']
@@ -472,14 +272,10 @@ def generate_weekly_summary(data: Dict) -> str:
         crypto_fg = fg_data.get('crypto', {})
         stock_fg = fg_data.get('stock', {})
 
-        message = f"""📊 <b>주간 Macro Risk 리뷰</b>
+        message = f"""📊 <b>주간 리뷰</b>
 
 ━━━━━━━━━━━━━━━━━━━━
-<b>현재 상태</b>
-{regime_info['emoji']} Regime: {regime_info['label']}
-Risk Score: {risk_score:.3f}
-
-<b>지표 현황</b>
+<b>거시경제 지표</b>
 • T10Y2Y: {t10y2y:.2f}% {'⚠️' if t10y2y <= 0 else '✅'}
 • HY OAS: {hyOas:.2f}% {'⚠️' if hyOas >= 6.0 else '✅'}
 • ISM PMI: {ismPmi:.1f} {'⚠️' if ismPmi < 50 else '✅'}
@@ -512,14 +308,6 @@ def main():
         print("Failed to fetch data")
         return
 
-    # Calculate current risk score
-    risk_score = calculate_risk_score(data['fred'])
-    if risk_score is None:
-        print("Failed to calculate risk score")
-        return
-
-    print(f"Current Risk Score: {risk_score:.3f}")
-
     # Get current Fear & Greed labels from API (original source)
     crypto_fg = data['fearGreed'].get('crypto', {})
     stock_fg = data['fearGreed'].get('stock', {})
@@ -527,10 +315,11 @@ def main():
     current_crypto_label = crypto_fg.get('label') if crypto_fg else None
     current_stock_label = stock_fg.get('label') if stock_fg else None
 
+    print(f"Crypto F&G: {crypto_fg.get('value')} ({current_crypto_label})")
+    print(f"Stock F&G: {stock_fg.get('value')} ({current_stock_label})")
+
     # Prepare current state
     current_state = {
-        'score': risk_score,
-        'regime': get_regime_from_score(risk_score),
         'crypto_fg_label': current_crypto_label,
         'stock_fg_label': current_stock_label,
         'indicators': {
@@ -545,20 +334,14 @@ def main():
     # Check alerts
     alerts = []
 
-    # Tier 1: All regime changes (Macro + Crypto F&G + Stock F&G)
-    regime_alert = check_regime_changes(risk_score, prev_state.get('score'),
-                                       data['fearGreed'], prev_state)
+    # Tier 1: Fear & Greed regime changes
+    regime_alert = check_regime_changes(data['fearGreed'], prev_state)
     if regime_alert:
         alerts.append(regime_alert)
 
     # Tier 2: Indicator thresholds
     tier2_alerts = check_tier2_alerts(data['fred'], prev_state)
     alerts.extend(tier2_alerts)
-
-    # Divergence detection
-    divergence_alert = check_divergence(risk_score, data['fearGreed'])
-    if divergence_alert:
-        alerts.append(divergence_alert)
 
     # Send alerts
     for alert in alerts:
