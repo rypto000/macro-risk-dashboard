@@ -32,28 +32,35 @@ INDICATOR_THRESHOLDS = {
     'unrate': {'critical': 4.5, 'label': '실업률 상승', 'emoji': '📈'}
 }
 
-# Fear & Greed regime thresholds (5 levels)
-FG_REGIMES = {
-    'extreme_fear': {'min': 0, 'max': 24, 'label': 'Extreme Fear', 'emoji': '🔴'},
-    'fear': {'min': 25, 'max': 49, 'label': 'Fear', 'emoji': '🟠'},
-    'neutral': {'min': 50, 'max': 74, 'label': 'Neutral', 'emoji': '🟡'},
-    'greed': {'min': 75, 'max': 89, 'label': 'Greed', 'emoji': '🟢'},
-    'extreme_greed': {'min': 90, 'max': 100, 'label': 'Extreme Greed', 'emoji': '🟢🟢'}
+# Fear & Greed label to emoji mapping (using original API labels)
+FG_LABEL_EMOJI = {
+    'extreme fear': '🔴',
+    'fear': '🟠',
+    'neutral': '🟡',
+    'greed': '🟢',
+    'extreme greed': '🟢🟢'
 }
 
 
-def get_fg_regime(value: int) -> str:
-    """Determine Fear & Greed regime from value"""
-    if value <= 24:
-        return 'extreme_fear'
-    elif value <= 49:
-        return 'fear'
-    elif value <= 74:
-        return 'neutral'
-    elif value <= 89:
-        return 'greed'
+def normalize_fg_label(label: str) -> str:
+    """Normalize Fear & Greed label (title case for display)"""
+    if not label:
+        return label
+    # Convert to lowercase for comparison, then title case for display
+    label_lower = label.lower()
+    if label_lower == 'extreme fear':
+        return 'Extreme Fear'
+    elif label_lower == 'extreme greed':
+        return 'Extreme Greed'
     else:
-        return 'extreme_greed'
+        return label.title()
+
+
+def get_fg_emoji(label: str) -> str:
+    """Get emoji for Fear & Greed label from original API (case-insensitive)"""
+    if not label:
+        return '❓'
+    return FG_LABEL_EMOJI.get(label.lower(), '❓')
 
 
 def get_regime_from_score(score: float) -> str:
@@ -199,35 +206,33 @@ def check_regime_changes(current_score: float, prev_score: Optional[float],
                 'score': current_score
             })
 
-    # Check Crypto Fear & Greed regime change
+    # Check Crypto Fear & Greed regime change (using original API label)
     crypto_fg = fg_data.get('crypto')
     if crypto_fg:
-        current_crypto_regime = get_fg_regime(crypto_fg['value'])
-        prev_crypto_regime = prev_state.get('crypto_fg_regime')
+        current_crypto_label = crypto_fg['label']
+        prev_crypto_label = prev_state.get('crypto_fg_label')
 
-        if prev_crypto_regime and current_crypto_regime != prev_crypto_regime:
-            curr_info = FG_REGIMES[current_crypto_regime]
-            prev_info = FG_REGIMES[prev_crypto_regime]
+        # Compare labels (case-insensitive)
+        if prev_crypto_label and current_crypto_label.lower() != prev_crypto_label.lower():
             changes.append({
                 'type': 'crypto_fg',
-                'prev': prev_info,
-                'curr': curr_info,
+                'prev': {'label': normalize_fg_label(prev_crypto_label), 'emoji': get_fg_emoji(prev_crypto_label)},
+                'curr': {'label': normalize_fg_label(current_crypto_label), 'emoji': get_fg_emoji(current_crypto_label)},
                 'value': crypto_fg['value']
             })
 
-    # Check Stock Fear & Greed regime change
+    # Check Stock Fear & Greed regime change (using original API label)
     stock_fg = fg_data.get('stock')
     if stock_fg:
-        current_stock_regime = get_fg_regime(stock_fg['value'])
-        prev_stock_regime = prev_state.get('stock_fg_regime')
+        current_stock_label = stock_fg['label']
+        prev_stock_label = prev_state.get('stock_fg_label')
 
-        if prev_stock_regime and current_stock_regime != prev_stock_regime:
-            curr_info = FG_REGIMES[current_stock_regime]
-            prev_info = FG_REGIMES[prev_stock_regime]
+        # Compare labels (case-insensitive)
+        if prev_stock_label and current_stock_label.lower() != prev_stock_label.lower():
             changes.append({
                 'type': 'stock_fg',
-                'prev': prev_info,
-                'curr': curr_info,
+                'prev': {'label': normalize_fg_label(prev_stock_label), 'emoji': get_fg_emoji(prev_stock_label)},
+                'curr': {'label': normalize_fg_label(current_stock_label), 'emoji': get_fg_emoji(current_stock_label)},
                 'value': stock_fg['value']
             })
 
@@ -276,20 +281,24 @@ def check_regime_changes(current_score: float, prev_score: Optional[float],
                 message += f"\n{action}"
 
         elif change['type'] == 'crypto_fg':
-            message = f"""🪙 <b>Crypto Fear & Greed 레짐 변경</b>
+            message = f"""🪙 <b>Crypto Fear & Greed 변경</b>
 
 {change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
 
 현재 값: {change['value']}
-변경 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}"""
+변경 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+Source: Alternative.me"""
 
         else:  # stock_fg
-            message = f"""📈 <b>Stock Fear & Greed 레짐 변경</b>
+            message = f"""📈 <b>Stock Fear & Greed 변경</b>
 
 {change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
 
 현재 값: {change['value']}
-변경 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}"""
+변경 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+Source: CNN"""
 
     else:
         # Multiple regime changes - combined message
@@ -309,12 +318,14 @@ Risk Score: {change['score']:.3f}
                 message += f"""<b>🪙 Crypto F&G</b>
 {change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
 값: {change['value']}
+(Source: Alternative.me)
 
 """
             else:  # stock_fg
                 message += f"""<b>📈 Stock F&G</b>
 {change['prev']['emoji']} {change['prev']['label']} → {change['curr']['emoji']} {change['curr']['label']}
 값: {change['value']}
+(Source: CNN)
 
 """
 
@@ -509,19 +520,19 @@ def main():
 
     print(f"Current Risk Score: {risk_score:.3f}")
 
-    # Get current Fear & Greed regimes
+    # Get current Fear & Greed labels from API (original source)
     crypto_fg = data['fearGreed'].get('crypto', {})
     stock_fg = data['fearGreed'].get('stock', {})
 
-    current_crypto_regime = get_fg_regime(crypto_fg['value']) if crypto_fg else None
-    current_stock_regime = get_fg_regime(stock_fg['value']) if stock_fg else None
+    current_crypto_label = crypto_fg.get('label') if crypto_fg else None
+    current_stock_label = stock_fg.get('label') if stock_fg else None
 
     # Prepare current state
     current_state = {
         'score': risk_score,
         'regime': get_regime_from_score(risk_score),
-        'crypto_fg_regime': current_crypto_regime,
-        'stock_fg_regime': current_stock_regime,
+        'crypto_fg_label': current_crypto_label,
+        'stock_fg_label': current_stock_label,
         'indicators': {
             't10y2y': data['fred']['t10y2y'][-1]['value'],
             'hyOas': data['fred']['hyOas'][-1]['value'],
